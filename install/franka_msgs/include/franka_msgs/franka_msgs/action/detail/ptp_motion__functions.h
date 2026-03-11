@@ -1,1 +1,0 @@
-/home/andrew/franka_ws/build/franka_msgs/rosidl_generator_c/franka_msgs/action/detail/ptp_motion__functions.h

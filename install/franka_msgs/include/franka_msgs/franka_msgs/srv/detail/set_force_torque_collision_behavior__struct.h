@@ -1,1 +1,0 @@
-/home/andrew/franka_ws/build/franka_msgs/rosidl_generator_c/franka_msgs/srv/detail/set_force_torque_collision_behavior__struct.h

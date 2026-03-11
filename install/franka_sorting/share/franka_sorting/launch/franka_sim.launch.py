@@ -1,1 +1,0 @@
-/home/andrew/franka_ws/src/franka_sorting/launch/franka_sim.launch.py

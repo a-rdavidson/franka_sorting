@@ -1,1 +1,0 @@
-/home/andrew/franka_ws/build/franka_msgs/rosidl_generator_cpp/franka_msgs/srv/detail/set_full_collision_behavior__traits.hpp

@@ -1,1 +1,0 @@
-/home/andrew/franka_ws/build/franka_msgs/rosidl_generator_cpp/franka_msgs/msg/detail/franka_robot_state__type_support.hpp

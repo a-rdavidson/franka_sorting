@@ -1,1 +1,0 @@
-/home/andrew/franka_ws/build/franka_msgs/rosidl_typesupport_introspection_c/franka_msgs/action/detail/move__rosidl_typesupport_introspection_c.h

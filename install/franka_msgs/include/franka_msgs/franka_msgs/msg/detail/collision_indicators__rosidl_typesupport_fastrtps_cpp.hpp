@@ -1,1 +1,0 @@
-/home/andrew/franka_ws/build/franka_msgs/rosidl_typesupport_fastrtps_cpp/franka_msgs/msg/detail/collision_indicators__rosidl_typesupport_fastrtps_cpp.hpp

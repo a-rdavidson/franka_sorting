@@ -1,1 +1,0 @@
-/home/andrew/franka_ws/build/franka_msgs/rosidl_typesupport_fastrtps_c/franka_msgs/msg/detail/target_status__rosidl_typesupport_fastrtps_c.h

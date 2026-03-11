@@ -1,1 +1,0 @@
-/home/andrew/franka_ws/src/panda_description/cmake/environment_hooks/gz_sim_resource_path.bash
