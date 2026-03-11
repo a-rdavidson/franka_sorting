@@ -22,7 +22,7 @@
   <depend>tf2_ros</depend>
 
   <depend>cv_bridge</depend>
-  <depend>opencv</depend>
+  <depend>libopencv-dev</depend>
 
   <depend>moveit_ros_planning_interface</depend>
   <depend>franka_msgs</depend>

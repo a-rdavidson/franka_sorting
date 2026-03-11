@@ -22,3 +22,7 @@ source install/setup.bash
 ros2 launch franka_sorting franka_sim.launch.py
 ```
 
+4. Alternatively launch the Dockerfile with the dependencies and environment preconfigured
+```bash 
+./run_docker.sh
+```
