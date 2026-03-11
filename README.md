@@ -1,7 +1,6 @@
 # Prerequisites
 - Ensure you have ROS2 & Gazebo installed
-```
-bash
+```bash
 sudo apt update 
 sudo apt install ros-jazzy-ros-gz \
                  ros-jazzy-xacro \
