@@ -1,0 +1,1 @@
+/home/andrew/franka_ws/build/franka_msgs/rosidl_typesupport_introspection_cpp/franka_msgs/srv/detail/set_full_collision_behavior__rosidl_typesupport_introspection_cpp.hpp

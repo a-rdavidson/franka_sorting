@@ -1,0 +1,1 @@
+/home/andrew/franka_ws/build/franka_sorting/ament_cmake_environment_hooks/local_setup.bash

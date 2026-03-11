@@ -1,0 +1,1 @@
+/home/andrew/franka_ws/build/franka_msgs/rosidl_generator_cpp/franka_msgs/msg/detail/collision_indicators__struct.hpp
