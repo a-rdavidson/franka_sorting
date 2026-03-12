@@ -39,7 +39,7 @@ def generate_launch_description():
     spawn_robot = Node(
         package='ros_gz_sim',
         executable='create',
-        arguments=['-topic', 'robot_description', '-name', 'franka_panda', '-z', '0.0'],
+        arguments=['-topic', 'robot_description', '-name', 'franka_panda', '-x', '-0.3'],
         output='screen'
     )
 
