@@ -68,7 +68,13 @@ def generate_launch_description():
         output='screen',
         parameters=[{'use_sim_time': True}]
     )
-    
+    block_detector_node = Node(
+        package='franka_perception',
+        executable='block_detector',
+        name='block_detector',
+        output='screen',
+        parameters=[{'use_sim_time': True}]
+    ) 
     bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -107,6 +113,18 @@ def generate_launch_description():
         arguments=["panda_arm_controller", "--controller-manager", "/controller_manager"], 
         parameters=[{'use_sim_time': True}]
     )
+    camera_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments = ['0.6', '0', '1.2', '0', '1.5708', '0', 'world', 'camera_link']
+    )
+    camera_optical_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='camera_optical_broadcaster',
+        arguments=['0', '0', '0', '-1.5708', '0', '-1.5708', 'camera_link', 'camera_link_optical'],
+        parameters=[{'use_sim_time': True}]
+    )
 
     return LaunchDescription([
         resource_path, 
@@ -116,6 +134,9 @@ def generate_launch_description():
         spawn_camera,
         rviz,
         bridge, 
+        block_detector_node,
+        camera_tf,
+        camera_optical_tf,
         RegisterEventHandler(
             event_handler=OnProcessExit(
                 target_action=spawn_robot,

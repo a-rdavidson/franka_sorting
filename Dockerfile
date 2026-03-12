@@ -12,6 +12,11 @@ RUN apt-get update && apt-get install -y \
 	ros-jazzy-moveit-ros-planning-interface \ 
 	ros-jazzy-joint-state-publisher-gui \ 
 	ros-jazzy-rviz2 \ 
+	ros-jazzy-tf-transformations \ 
+	ros-jazzy-controller-manager \ 
+	ros-jazzy-ros2-control \ 
+	ros-jazzy-ros2-controllers \
+	ros-jazzy-gz-ros2-control \
 	git \ 
 	libopencv-dev \ 
 	&& rm -rf /var/lib/apt/lists/*
@@ -21,10 +26,10 @@ WORKDIR /franka_ws
 COPY src/ /franka_ws/src
 COPY build.sh clean_build.sh /franka_ws/
 
-# initialize rosdep & install remaining dependencies
-RUN rosdep update && \ 
-    rosdep install --from-paths src --ignore-src -y \ 
-    --skip-keys "opencv moveit_ros_planning_interface, joint_state_publisher_gui"
+
+RUN rosdep update && \
+    rosdep install --from-paths src --ignore-src -y \
+    --skip-keys "ament_python opencv moveit_ros_planning_interface joint_state_publisher_gui"
 
 # Build workspace 
 RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && \ 
