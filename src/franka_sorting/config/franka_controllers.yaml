@@ -6,10 +6,13 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    franka_arm_controller:
+    panda_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
-franka_arm_controller:
+    panda_gripper_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+panda_arm_controller:
   ros__parameters:
     command_interfaces:
       - position
@@ -24,3 +27,14 @@ franka_arm_controller:
       - panda_joint5
       - panda_joint6
       - panda_joint7
+
+panda_gripper_controller:
+  ros__parameters:
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    joints:
+      - panda_finger_joint1
+      - panda_finger_joint2

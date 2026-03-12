@@ -77,6 +77,22 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}]
     )
 
+
+    load_gripper_controller = Node(
+        package="controller_manager", 
+        executable="spawner", 
+        arguments=["panda_gripper_controller", "--controller-manager", "/controller_manager"], 
+        parameters=[{'use_sim_time': True}]
+    )
+
+
+    load_arm_controller = Node(
+        package="controller_manager", 
+        executable="spawner", 
+        arguments=["panda_arm_controller", "--controller-manager", "/controller_manager"], 
+        parameters=[{'use_sim_time': True}]
+    )
+
     return LaunchDescription([
         resource_path, 
         gazebo,
@@ -87,7 +103,7 @@ def generate_launch_description():
         RegisterEventHandler(
             event_handler=OnProcessExit(
                 target_action=spawn_robot,
-                on_exit=[load_joint_state_broadcaster]
+                on_exit=[load_joint_state_broadcaster, load_arm_controller, load_gripper_controller]
             )
         )
     ])
