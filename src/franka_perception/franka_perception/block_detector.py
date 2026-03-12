@@ -55,7 +55,8 @@ class BlockDetector(Node):
                     # Project to Camera Frame (camera_link_optical)
                     ray = self.camera_model.projectPixelTo3dRay((u, v))
                     point_camera = PointStamped()
-                    point_camera.header = rgb_msg.header
+                    point_camera.header.frame_id = "camera_link_optical"
+                    point_camera.header.stamp = rgb_msg.header.stamp
                     point_camera.point.x = ray[0] * z_camera
                     point_camera.point.y = ray[1] * z_camera
                     point_camera.point.z = z_camera
@@ -65,7 +66,7 @@ class BlockDetector(Node):
                         # Ensure we use the correct optical frame ID from the message
                         transform = self.tf_buffer.lookup_transform(
                             'world', 
-                            'camera_link',
+                            'camera_link_optical',
                             rclpy.time.Time()
                         )
                         point_world = do_transform_point(point_camera, transform)

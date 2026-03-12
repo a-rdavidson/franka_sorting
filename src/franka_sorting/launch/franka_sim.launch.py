@@ -118,6 +118,13 @@ def generate_launch_description():
         executable='static_transform_publisher',
         arguments = ['0.6', '0', '1.2', '0', '1.5708', '0', 'world', 'camera_link']
     )
+    camera_optical_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='camera_optical_broadcaster',
+        arguments=['0', '0', '0', '-1.5708', '0', '-1.5708', 'camera_link', 'camera_link_optical'],
+        parameters=[{'use_sim_time': True}]
+    )
 
     return LaunchDescription([
         resource_path, 
@@ -129,6 +136,7 @@ def generate_launch_description():
         bridge, 
         block_detector_node,
         camera_tf,
+        camera_optical_tf,
         RegisterEventHandler(
             event_handler=OnProcessExit(
                 target_action=spawn_robot,
