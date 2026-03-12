@@ -11,12 +11,16 @@ def generate_launch_description():
     pkg_share = get_package_share_directory('franka_sorting')
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
 
-    xacro_file = os.path.join(pkg_share, 'description', 'franka_camera.urdf.xacro')
+    xacro_file = os.path.join(pkg_share, 'description', 'franka.urdf.xacro')
     
     # Generate robot description from xacro
     robot_description = {'robot_description': Command(['xacro ', xacro_file])}
-    
     panda_desc_share = get_package_share_directory('panda_description')
+
+    camera_description_content = Command([
+        'xacro ', 
+        os.path.join(pkg_share, 'description', 'camera_only.urdf.xacro')
+    ])
 
     resource_path = SetEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH', 
@@ -47,6 +51,16 @@ def generate_launch_description():
         output='screen'
     )
 
+    spawn_camera = Node(
+        package='ros_gz_sim',
+        executable='create',
+        arguments = [
+            '-string', camera_description_content, 
+            '-name', 'external_camera'
+        ],
+        output='screen'
+    )
+
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -60,6 +74,7 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=[
             '/camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/camera/depth_image@sensor_msgs/msg/Image[gz.msgs.Image',
             '/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
             '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             '/tf_static@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
@@ -98,6 +113,7 @@ def generate_launch_description():
         gazebo,
         robot_state_publisher,
         spawn_robot,
+        spawn_camera,
         rviz,
         bridge, 
         RegisterEventHandler(
