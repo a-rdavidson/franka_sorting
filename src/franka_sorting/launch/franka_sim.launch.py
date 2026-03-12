@@ -1,10 +1,11 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable
+from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable, RegisterEventHandler
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch.substitutions import Command
+from launch.event_handlers import OnProcessExit
 
 def generate_launch_description():
     pkg_share = get_package_share_directory('franka_sorting')
@@ -26,7 +27,10 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')
         ),
-        launch_arguments={'gz_args': f'-r {os.path.join(pkg_share, "world", "scene.sdf")}'}.items(),
+        launch_arguments={
+            'gz_args': f'-r {os.path.join(pkg_share, "world", "scene.sdf")}', 
+            'on_exit_shutdown': 'True'
+         }.items(),
     )
 
     robot_state_publisher = Node(
@@ -59,10 +63,19 @@ def generate_launch_description():
             '/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
             '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             '/tf_static@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+            '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model', 
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'
         ], 
+        parameters=[{'use_sim_time': True}],
         output='screen'
     )
 
+    load_joint_state_broadcaster = Node(
+        package="controller_manager", 
+        executable="spawner", 
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"], 
+        parameters=[{'use_sim_time': True}]
+    )
 
     return LaunchDescription([
         resource_path, 
@@ -70,5 +83,11 @@ def generate_launch_description():
         robot_state_publisher,
         spawn_robot,
         rviz,
-        bridge
+        bridge, 
+        RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=spawn_robot,
+                on_exit=[load_joint_state_broadcaster]
+            )
+        )
     ])

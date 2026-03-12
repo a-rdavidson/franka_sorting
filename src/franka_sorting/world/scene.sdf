@@ -1,11 +1,28 @@
 <?xml version="1.0" ?>
 <sdf version="1.8">
   <world name="sorting_world">
+	<plugin
+	  filename="libgz-sim-physics-system.so"
+	  name="gz::sim::systems::Physics">
+	</plugin>
+	<plugin
+	  filename="libgz-sim-user-commands-system.so"
+	  name="gz::sim::systems::UserCommands">
+	</plugin>
+	<plugin
+	  filename="libgz-sim-scene-broadcaster-system.so"
+	  name="gz::sim::systems::SceneBroadcaster">
+	</plugin>
+	<plugin
+	  filename="libgz-sim-sensors-system.so"
+	  name="gz::sim::systems::Sensors">
+	  <render_engine>ogre2</render_engine>
+	</plugin>
     <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1.0</real_time_factor>
     </physics>
-    
+
     <include>
       <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Sun</uri>
     </include>
@@ -21,7 +38,10 @@
         </collision>
         <visual name="visual">
           <geometry><box><size>1.0 1.5 0.7</size></box></geometry>
-          <material><ambient>0.5 0.3 0.1 1</ambient></material>
+          <material>
+            <ambient>0.5 0.3 0.1 1</ambient>
+            <diffuse>0.5 0.3 0.1 1</diffuse>
+          </material>
         </visual>
       </link>
       <pose>0.5 0 0.35 0 0 0</pose>
@@ -35,10 +55,14 @@
         </collision>
         <visual name="visual">
           <geometry><box><size>0.8 0.05 0.15</size></box></geometry>
-          <material><ambient>0.7 0.7 0.7 1</ambient></material>
+          <material>
+            <ambient>0.7 0.7 0.7 1</ambient>
+            <diffuse>0.7 0.7 0.7 1</diffuse>
+          </material>
         </visual>
       </link>
-      <pose>0.5 0 0.775 0 0 0</pose> </model>
+      <pose>0.5 0 0.775 0 0 0</pose> 
+    </model>
 
     <model name="red_block">
       <link name="link">
@@ -47,7 +71,10 @@
         </collision>
         <visual name="visual">
           <geometry><box><size>0.04 0.04 0.04</size></box></geometry>
-          <material><ambient>1 0 0 1</ambient><diffuse>1 0 0 1</diffuse></material>
+          <material>
+            <ambient>1 0 0 1</ambient>
+            <diffuse>1 0 0 1</diffuse>
+          </material>
         </visual>
       </link>
       <pose>0.4 0.2 0.72 0 0 0</pose>

@@ -45,8 +45,60 @@
   </gazebo>
 
   <link name="world"/>
-  <xacro:panda_arm base_parent="world"/>
-  <xacro:panda_gripper wrist_flange="panda_link8"/>
+    <xacro:panda_arm base_parent="world"/>
+    <xacro:panda_gripper wrist_flange="panda_link8"/>
 
+    <ros2_control name="GazeboSimSystem" type="system">
+      <hardware>
+        <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+      </hardware>
+    
+      <joint name="panda_joint1">
+        <command_interface name="position"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="panda_joint2">
+        <command_interface name="position"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="panda_joint3">
+        <command_interface name="position"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="panda_joint4">
+        <command_interface name="position"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="panda_joint5">
+        <command_interface name="position"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="panda_joint6">
+        <command_interface name="position"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="panda_joint7">
+        <command_interface name="position"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+    </ros2_control>
+
+  <gazebo>
+    <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find franka_sorting)/config/franka_controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
+  <gazebo>
+    <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find franka_sorting)/config/franka_controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
 
 </robot>
