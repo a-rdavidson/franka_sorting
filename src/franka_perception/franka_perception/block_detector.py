@@ -1,5 +1,4 @@
-cleaner logging and function separation
-Updated Full Code
+
 import rclpy
 from rclpy.node import Node
 
