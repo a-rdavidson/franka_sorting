@@ -140,7 +140,7 @@ class BlockDetector(Node):
                 rclpy.time.Time()
             )
 
-            pose_world = do_transform_pose(target_pose, transform)
+            pose_world = do_transform_pose(target_pose.pose, transform)
 
             self.get_logger().info(
                 f"Block detected: "
