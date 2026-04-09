@@ -75,6 +75,13 @@ def generate_launch_description():
         output='screen',
         parameters=[{'use_sim_time': True}]
     ) 
+    block_listener_node = Node(
+        package='franka_perception',
+        executable='block_listener',
+        name='block_listener',
+        output='screen',
+        parameters=[{'use_sim_time': True}]
+    ) 
     bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -134,6 +141,7 @@ def generate_launch_description():
         spawn_camera,
         rviz,
         bridge, 
+        block_listener_node, 
         block_detector_node,
         camera_tf,
         camera_optical_tf,

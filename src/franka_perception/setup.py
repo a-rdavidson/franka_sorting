@@ -19,7 +19,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'block_detector = franka_perception.block_detector:main'
+            'block_detector = franka_perception.block_detector:main',
+            'block_listener = franka_perception.block_listener:main'
         ],
     },
 )

@@ -137,7 +137,8 @@ class BlockDetector(Node):
             transform = self.tf_buffer.lookup_transform(
                 'world',
                 'camera_link_optical',
-                rclpy.time.Time()
+                rclpy.time.Time(),
+                timeout=rclpy.duration.Duration(seconds=0.1) # small buffer
             )
 
             pose_world = do_transform_pose(target_pose.pose, transform)
