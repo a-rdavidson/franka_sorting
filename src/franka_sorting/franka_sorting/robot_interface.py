@@ -131,7 +131,6 @@ class RobotInterface(Node):
         self.log_lines.append(msg)
         self.log_lines = self.log_lines[-12:]
 
-    
     def send_joints_goal(self, joint_positions: dict, acm_object_id: str = None):
         """Send a joint-space goal to MoveIt. Returns a Future[GoalHandle]."""
         goal = self._build_move_goal()
