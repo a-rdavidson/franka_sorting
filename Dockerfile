@@ -6,6 +6,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install essential build tools & dependencies
 RUN apt-get update && apt-get install -y \ 
 	python3-colcon-common-extensions \ 
+  python3-pip \ 
+  python3-numpy \
 	ros-jazzy-ros-gz \
 	ros-jazzy-xacro \ 
 	ros-jazzy-robot-state-publisher \
@@ -21,6 +23,12 @@ RUN apt-get update && apt-get install -y \
 	libopencv-dev \ 
   libpcl-dev \ 
   libeigen3-dev \
+  python3-vcstool \ 
+  ros-jazzy-py-trees-ros-viewer \
+  ros-jazzy-py-trees \
+  ros-jazzy-py-trees-ros \
+  ros-jazzy-py-trees-ros-interfaces \
+  ros-jazzy-cv-bridge \
   tmux \
 	&& rm -rf /var/lib/apt/lists/*
 
@@ -28,11 +36,10 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /franka_ws
 RUN mkdir -p src/deps
 
-RUN git clone https://github.com/atenpas/gpd.git src/deps/gpd
-
-RUN cmake -S src/deps/gpd \
-    -B src/deps/gpd/build \
-    -DCMAKE_BUILD_TYPE=Release
+RUN git clone https://github.com/atenpas/gpd.git src/deps/gpd && \
+    cmake -S src/deps/gpd -B src/deps/gpd/build -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build src/deps/gpd/build --target install && \
+    ldconfig
 
 COPY src/ /franka_ws/src
 COPY build.sh clean_build.sh /franka_ws/
