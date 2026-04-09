@@ -19,14 +19,23 @@ RUN apt-get update && apt-get install -y \
 	ros-jazzy-gz-ros2-control \
 	git \ 
 	libopencv-dev \ 
+  libpcl-dev \ 
+  libeigen3-dev \
   tmux \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Create workspace 
 WORKDIR /franka_ws
+RUN mkdir -p src/deps
+
+RUN git clone https://github.com/atenpas/gpd.git src/deps/gpd
+
+RUN cmake -S src/deps/gpd \
+    -B src/deps/gpd/build \
+    -DCMAKE_BUILD_TYPE=Release
+
 COPY src/ /franka_ws/src
 COPY build.sh clean_build.sh /franka_ws/
-
 
 RUN rosdep update && \
     rosdep install --from-paths src --ignore-src -y \
