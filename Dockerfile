@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
 	ros-jazzy-gz-ros2-control \
 	git \ 
 	libopencv-dev \ 
+  tmux \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Create workspace 
