@@ -10,6 +10,7 @@
 
   <!-- Everyone else needs to add your emails -->
   <maintainer email="davids86@purdue.edu">Andrew Davidson</maintainer>
+  <maintainer email="liu3447@purdue.edu">Andrew Liu</maintainer>
 
   <license>Apache-2.0</license>
 
@@ -26,6 +27,13 @@
 
   <depend>moveit_ros_planning_interface</depend>
   <depend>franka_msgs</depend>
+  <exec_depend>py_trees</exec_depend>
+  <exec_depend>py_trees_ros</exec_depend>
+  <exec_depend>py_trees_ros_viewer</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>moveit_msgs</exec_depend>
+  <exec_depend>control_msgs</exec_depend>
+ 
   <!-- <depend>franka_gripper</depend> -->
 
   <export>
