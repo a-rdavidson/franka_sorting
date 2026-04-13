@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y \
   ros-jazzy-py-trees-ros-interfaces \
   ros-jazzy-cv-bridge \
   tmux \
+  vim \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Create workspace 
