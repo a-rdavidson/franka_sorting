@@ -143,13 +143,13 @@ class BlockDetector(Node):
 
             pose_world = do_transform_pose(target_pose.pose, transform)
 
-            self.get_logger().info(
-                f"Block detected: "
-                f"X={pose_world.position.x:.3f}, "
-                f"Y={pose_world.position.y:.3f}, "
-                f"Z={pose_world.position.z:.3f}, "
-                f"Yaw={yaw_world_aligned:.2f} rad"
-            )
+            #self.get_logger().info(
+            #    f"Block detected: "
+            #    f"X={pose_world.position.x:.3f}, "
+            #    f"Y={pose_world.position.y:.3f}, "
+            #    f"Z={pose_world.position.z:.3f}, "
+            #    f"Yaw={yaw_world_aligned:.2f} rad"
+            #)
 
             #TODO: THIS IS DUMMY FIXED DIMENSIONS. EDIT THIS LATER
             dimensions = [0.04, 0.04, 0.03]

@@ -63,7 +63,7 @@
 
   <gazebo>
     <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-      <parameters>$(find franka_sorting)/config/franka_controllers.yaml</parameters>
+      <parameters>$(find franka_sorting)/config/controllers_position,velocity.yaml</parameters>
     </plugin>
   </gazebo>
 

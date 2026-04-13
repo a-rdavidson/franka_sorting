@@ -20,6 +20,7 @@ install(DIRECTORY
   description
   config
   world
+  srdf
   DESTINATION share/franka_sorting
 )
 

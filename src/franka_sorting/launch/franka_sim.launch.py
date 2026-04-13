@@ -6,6 +6,9 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch.substitutions import Command
 from launch.event_handlers import OnProcessExit
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
+
 
 def generate_launch_description():
     pkg_share = get_package_share_directory('franka_sorting')
@@ -36,7 +39,16 @@ def generate_launch_description():
             'on_exit_shutdown': 'True'
          }.items(),
     )
-
+    move_group = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            os.path.join(get_package_share_directory('franka_sorting'), 'launch', 'move_group.launch.py')
+        ]),
+        launch_arguments=[
+            ("ros2_control_plugin", "gz"),
+            ("use_sim_time", "true"),
+            ("load_robot_description", "false"), 
+        ],
+    ) 
     robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -61,13 +73,13 @@ def generate_launch_description():
         output='screen'
     )
 
-    rviz = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        output='screen',
-        parameters=[{'use_sim_time': True}]
-    )
+    #rviz = Node(
+    #    package='rviz2',
+    #    executable='rviz2',
+    #    name='rviz2',
+    #    output='screen',
+    #    parameters=[{'use_sim_time': True}]
+    #)
     block_detector_node = Node(
         package='franka_perception',
         executable='block_detector',
@@ -98,28 +110,28 @@ def generate_launch_description():
         output='screen'
     )
 
-    load_joint_state_broadcaster = Node(
-        package="controller_manager", 
-        executable="spawner", 
-        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"], 
-        parameters=[{'use_sim_time': True}]
-    )
+    #load_joint_state_broadcaster = Node(
+    #    package="controller_manager", 
+    #    executable="spawner", 
+    #    arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"], 
+    #    parameters=[{'use_sim_time': True}]
+    #)
 
 
-    load_gripper_controller = Node(
-        package="controller_manager", 
-        executable="spawner", 
-        arguments=["panda_gripper_controller", "--controller-manager", "/controller_manager"], 
-        parameters=[{'use_sim_time': True}]
-    )
+    #load_gripper_controller = Node(
+    #    package="controller_manager", 
+    #    executable="spawner", 
+    #    arguments=["panda_gripper_controller", "--controller-manager", "/controller_manager"], 
+    #    parameters=[{'use_sim_time': True}]
+    #)
 
 
-    load_arm_controller = Node(
-        package="controller_manager", 
-        executable="spawner", 
-        arguments=["panda_arm_controller", "--controller-manager", "/controller_manager"], 
-        parameters=[{'use_sim_time': True}]
-    )
+    #load_arm_controller = Node(
+    #    package="controller_manager", 
+    #    executable="spawner", 
+    #    arguments=["panda_arm_controller", "--controller-manager", "/controller_manager"], 
+    #    parameters=[{'use_sim_time': True}]
+    #)
     camera_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -139,7 +151,6 @@ def generate_launch_description():
         robot_state_publisher,
         spawn_robot,
         spawn_camera,
-        rviz,
         bridge, 
         block_listener_node, 
         block_detector_node,
@@ -148,7 +159,7 @@ def generate_launch_description():
         RegisterEventHandler(
             event_handler=OnProcessExit(
                 target_action=spawn_robot,
-                on_exit=[load_joint_state_broadcaster, load_arm_controller, load_gripper_controller]
+                on_exit=[move_group]
             )
         )
     ])
