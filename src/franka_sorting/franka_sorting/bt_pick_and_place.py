@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""
+LAB03 — Behavior Tree pick-and-place.
+
+Run after launch_ctrl:
+    ros2 run panda_moveit_config bt_pick_place.py
+"""
 
 import copy
 import rclpy
