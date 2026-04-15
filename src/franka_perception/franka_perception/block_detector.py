@@ -21,6 +21,86 @@ from moveit_msgs.msg import CollisionObject, PlanningScene
 from visualization_msgs.msg import MarkerArray, Marker
 
 
+class Track:
+    def __init__(self, pose, dims, track_id):
+        self.pose = pose
+        self.dims = dims
+        self.id = track_id
+        self.missed = 0
+
+# a really bad real time tracking. if this doesn't suffice, we would need to do proper SORT
+class ObjectTracker:
+    def __init__(self):
+        self.tracks = []
+        self.next_id = 0
+
+        self.MAX_DIST = 0.05   # 5 cm matching threshold
+        self.MAX_MISSED = 10    # frames before deleting track
+
+    def _update_for_existing_scene(self, detections):
+        #always overwrites current self.tracks with new_tracks.
+        new_tracks = []
+        used_tracks = set()
+
+        # Match detections → existing tracks
+        for det_pose, det_dims in detections:
+            best_track = None
+            best_dist = float('inf')
+
+            for track in self.tracks:
+                dx = track.pose.position.x - det_pose.position.x
+                dy = track.pose.position.y - det_pose.position.y
+                dist = np.sqrt(dx * dx + dy * dy)
+
+                if dist < best_dist:
+                    best_dist = dist
+                    best_track = track
+
+            #found a track that matches well with current detection
+            if best_track and best_dist < self.MAX_DIST:
+                best_track.pose = det_pose
+                best_track.dims = det_dims
+                best_track.missed = 0
+                new_tracks.append(best_track)
+                used_tracks.add(best_track.id)
+            #new object, create new track
+            else:
+                new_track = Track(det_pose, det_dims, self.next_id)
+                self.next_id += 1
+                new_tracks.append(new_track)
+
+        # Handle unmatched tracks
+        for track in self.tracks:
+            if track.id not in used_tracks:
+                track.missed += 1
+                if track.missed < self.MAX_MISSED:
+                    new_tracks.append(track)
+
+        self.tracks = new_tracks
+
+        return [(t.pose, t.dims, t.id) for t in self.tracks]
+    # the reason why we have slightly different update function for new scene is so we don't conflate nearby objects as the same
+    def _update_for_new_scene(self, detections):
+        new_tracks = []
+        for det_pose, det_dims in detections:
+            new_track = Track(det_pose, det_dims, self.next_id)
+            self.next_id += 1
+            new_tracks.append(new_track)
+            
+        self.tracks = new_tracks
+        return [(t.pose, t.dims, t.id) for t in self.tracks]
+            
+            
+        
+    def update(self, detections):
+        if (self.tracks == None or len(self.tracks) == 0):
+            return self._update_for_new_scene(detections)
+        else:
+            return self._update_for_existing_scene(detections)
+        
+
+
+
 class BlockDetector(Node):
     def __init__(self):
         super().__init__('block_detector')
@@ -30,6 +110,9 @@ class BlockDetector(Node):
         self.camera_model = PinholeCameraModel()
         self.camera_ready = False
 
+        #object tracking
+        self.tracker = ObjectTracker()
+        
         # TF2 setup
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
@@ -187,7 +270,9 @@ class BlockDetector(Node):
                 detected_objects.append(result)
 
         if detected_objects:
-            self.publish_objects(detected_objects)
+            tracked = self.tracker.update(detected_objects)
+            self.publish_objects(tracked)
+            
 
 
 
@@ -207,14 +292,13 @@ class BlockDetector(Node):
         --------
         * Publishes a PlanningScene diff on the existing `self.scene_pub`.
         * Publishes a MarkerArray on `/detected_markers` (LINE_LIST wireframe).
-        The publisher is created lazily and stored as `self.marker_pub`.
         * Publishes each CollisionObject on `/collision_object` (one message per
-        object) via a lazily-created `self.collision_pub`.
+        object) via a `self.collision_pub`.
         """
 
         # 3) Build and publish MarkerArray (wireframe boxes)
         marker_array = self._MarkerArray()
-        for idx, (pose, dims) in enumerate(objects):
+        for pose, dims, track_id in objects:
             dx, dy, dz = dims
 
 
@@ -222,8 +306,8 @@ class BlockDetector(Node):
             m = self._Marker()
             m.header.frame_id = 'world'
             m.header.stamp = self.get_clock().now().to_msg()
-            m.ns = 'detected_objects'
-            m.id = idx
+            m.ns = 'tracked_objects'
+            m.id = track_id
             m.type = m.CUBE
             m.action = m.ADD
             m.pose = pose

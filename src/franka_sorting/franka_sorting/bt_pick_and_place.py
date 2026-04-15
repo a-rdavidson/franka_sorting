@@ -37,7 +37,7 @@ class ReadScene(py_trees.behaviour.Behaviour):
     Blackboard writes: /detected_objects (dict[str, DetectedObject])
     """
 
-    ALL_OBJECTS = ['blue_box', 'red_box', 'green_box']
+    #ALL_OBJECTS = ['blue_box', 'red_box', 'green_box']
 
     def __init__(self, robot: RobotInterface):
         super().__init__('ReadScene')
@@ -48,7 +48,7 @@ class ReadScene(py_trees.behaviour.Behaviour):
     _STABLE_TICKS = 10  # ~2 s at 200 ms/tick
 
     def initialise(self) :
-        for obj_id in self.ALL_OBJECTS:
+        for obj_id in self.robot._detected_objects.keys():
             self.robot.detach_object(obj_id)
         self.robot.log('[INFO] ReadScene: detached stale objects')
         self._stable = {}   # obj_id -> consecutive stable ticks
@@ -56,7 +56,7 @@ class ReadScene(py_trees.behaviour.Behaviour):
 
     def update(self):
         all_stable = True
-        for obj_id in self.ALL_OBJECTS:
+        for obj_id in self.robot._detected_objects.keys():
             obj = self.robot._detected_objects.get(obj_id)
             if obj is None:
                 all_stable = False
@@ -76,7 +76,7 @@ class ReadScene(py_trees.behaviour.Behaviour):
 
         # All objects stable — add to planning scene
         scene = PlanningScene(is_diff=True)
-        for obj_id in self.ALL_OBJECTS:
+        for obj_id in self.robot._detected_objects.keys():
             obj = self.robot._detected_objects[obj_id]
             co = CollisionObject()
             co.header.frame_id = 'world'
@@ -195,7 +195,7 @@ class MoveToGrasp(ActionNode):
         super().__init__('MoveToGrasp', robot)
         self.bb = py_trees.blackboard.Client(name='MoveToGrasp')
         self.bb.register_key('/grasp_proposals',  access=py_trees.common.Access.READ)
-        self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
+        #self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ) probably dont need this
 
     def _send_goal(self):
         grasp = self.bb.grasp_proposals[0]
@@ -355,6 +355,7 @@ class CheckAllObjectsInContainer(py_trees.behaviour.Behaviour):
         self.bb = py_trees.blackboard.Client(name='CheckAllObjectsInContainer')
         self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
         self.bb.register_key('/container',        access=py_trees.common.Access.READ)
+        self.bb.register_key('/detected_objects', access=py_trees.common.Access.READ)
 
     def initialise(self):
         self._deadline = (self.robot.get_clock().now().nanoseconds
@@ -374,18 +375,22 @@ class CheckAllObjectsInContainer(py_trees.behaviour.Behaviour):
             self.robot.log('[FAIL] CheckAllObjectsInContainer: timeout')
             return py_trees.common.Status.FAILURE
 
-        obj = self.robot._detected_objects.get(self.bb.target_object_id)
-        if obj is None:
+        number_of_objects = len(self.robot._detected_objects)
+        # if number of objects is less then the initial snapshot, that probably means the object is being held by robot, explaining why there is fewer objects detected
+        if number_of_objects < len(self.bb.detected_objects):
             return py_trees.common.Status.RUNNING
 
-        if self._in_container_xy(obj.pose):
+        #Commented out this part, since the target_object_id likely doesn't exist/match the object in the container
+        '''if self._in_container_xy(obj.pose):
             self._stable += 1
         else:
             self._stable = 0
 
         if self._stable < self._STABLE_TICKS:
             return py_trees.common.Status.RUNNING
-
+        '''
+        
+        
         all_in = all(
             self._in_container_xy(o.pose)
             for o in self.robot._detected_objects.values()
@@ -393,6 +398,7 @@ class CheckAllObjectsInContainer(py_trees.behaviour.Behaviour):
         if all_in:
             self.robot.log('[OK]   Goal Status: SUCCESS — all objects sorted')
             return py_trees.common.Status.SUCCESS
+    
 
         self.robot.log(f'[OK]   {self.bb.target_object_id} in container, others remain')
         return py_trees.common.Status.FAILURE
