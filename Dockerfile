@@ -45,7 +45,7 @@ RUN git clone https://github.com/atenpas/gpd.git src/deps/gpd && \
     ldconfig
 
 # Copy helper scripts only
-COPY build.sh clean_build.sh /franka_ws/
+COPY build.sh clean_build.sh bootstrap.sh /franka_ws/
 
 # Auto-source ROS
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
