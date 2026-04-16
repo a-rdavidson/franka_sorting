@@ -38,12 +38,10 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* && apt-get update --fix-missing
 WORKDIR /franka_ws
 RUN mkdir -p src/deps
 
-# Install GPD (pin commit for caching stability)
+# Install GPD
 RUN git clone https://github.com/atenpas/gpd.git src/deps/gpd && \
-    cd src/deps/gpd && \
-    git checkout 4a7f0c5 && \
-    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build build --target install && \
+    cmake -S src/deps/gpd -B src/deps/gpd/build -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build src/deps/gpd/build --target install && \
     ldconfig
 
 # Copy helper scripts only

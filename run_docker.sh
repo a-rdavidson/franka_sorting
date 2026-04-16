@@ -34,7 +34,7 @@ docker run -it --rm \
 		rosdep install --from-paths src --ignore-src -y \
 		  --skip-keys 'ament_python opencv moveit_ros_planning_interface joint_state_publisher_gui' && \
 		colcon build --symlink-install && \
-		source install/setup.bash && \
+		echo "source /franka_ws/install/setup.bash" >> ~/.bashrc && \
 		bash
 	"
 
