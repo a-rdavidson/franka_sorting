@@ -116,7 +116,8 @@ class MoveToHome(ActionNode):
         # Open gripper (best-effort, don't wait for result)
         self.robot.send_gripper_goal(open=True)
         # Detach and remove all objects
-        self.robot.detach_object(self.bb.target_object_id)
+        if (self.bb.target_object_id):
+            self.robot.detach_object(self.bb.target_object_id)
         for obj_id in self.robot._detected_objects.keys():
             self.robot.detach_object(obj_id)
         # Clear planning scene
