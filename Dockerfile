@@ -2,7 +2,7 @@
 FROM osrf/ros:jazzy-desktop
 
 ENV DEBIAN_FRONTEND=noninteractive
-
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://snapshot.ubuntu.com/ubuntu|g' /etc/apt/sources.list
 # Install essential build tools & dependencies
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* && apt-get update --fix-missing && apt-get install -y \
     python3-colcon-common-extensions \
