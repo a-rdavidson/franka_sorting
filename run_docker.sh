@@ -25,7 +25,6 @@ docker run -it --rm \
 	--env="XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" \
 	--volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
 	--device /dev/dri:/dev/dri \
-	--volume="$(pwd):/franka_ws" \
 	$IMAGE_NAME
 
 xhost -local:docker > /dev/null
