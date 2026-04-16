@@ -107,6 +107,7 @@ class MoveToHome(ActionNode):
 
     def __init__(self, robot: RobotInterface):
         super().__init__('MoveToHome', robot)
+        self.bb = py_trees.blackboard.Client(name='MoveToHome')
         self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
         self.bb.register_key('/detected_objects', access=py_trees.common.Access.READ)
         self._retries = 0
