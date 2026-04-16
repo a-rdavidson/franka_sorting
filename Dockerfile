@@ -4,7 +4,7 @@ FROM osrf/ros:jazzy-desktop
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install essential build tools & dependencies
-RUN apt-get update && apt-get install -y \ 
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* && apt-get update --fix-missing && apt-get install -y \ 
 	python3-colcon-common-extensions \ 
   python3-pip \ 
   python3-numpy \
