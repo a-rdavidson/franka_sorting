@@ -326,7 +326,7 @@ class BlockDetector(Node):
 
         # publish markers
         self.marker_pub.publish(marker_array)
-        self.get_logger().info(f'Published {len(marker_array.markers)} wireframe marker(s)')
+        #self.get_logger().info(f'Published {len(marker_array.markers)} wireframe marker(s)')
 
         # 4) Publish individual CollisionObject messages for downstream nodes
         # (some systems prefer /collision_object single messages rather than full PlanningScene diffs)
@@ -344,7 +344,7 @@ class BlockDetector(Node):
 
             self.collision_pub.publish(co_msg)
 
-        self.get_logger().info(f'Published {len(objects)} CollisionObject message(s) on /collision_object')
+        #self.get_logger().info(f'Published {len(objects)} CollisionObject message(s) on /collision_object')
 def main():
     rclpy.init()
     node = BlockDetector()
