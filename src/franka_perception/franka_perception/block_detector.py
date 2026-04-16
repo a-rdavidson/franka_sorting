@@ -330,9 +330,9 @@ class BlockDetector(Node):
 
         # 4) Publish individual CollisionObject messages for downstream nodes
         # (some systems prefer /collision_object single messages rather than full PlanningScene diffs)
-        for idx, (pose, dims) in enumerate(objects):
+        for pose, dims, track_id in objects:
             co_msg = CollisionObject()
-            co_msg.id = f'detected_object_{idx}'
+            co_msg.id = f'detected_object_{track_id}'
             co_msg.header.frame_id = 'world'
             co_msg.header.stamp = self.get_clock().now().to_msg()
             co_msg.operation = CollisionObject.ADD
