@@ -25,6 +25,7 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* && apt-get update --fix-missing
     ros-jazzy-py-trees-ros-interfaces \
     ros-jazzy-cv-bridge \
     ros-jazzy-moveit-planners-ompl \
+    ros-jazzy-moveit-simple-controller-manager \
     git \
     libopencv-dev \
     libpcl-dev \
