@@ -37,8 +37,6 @@ class ReadScene(py_trees.behaviour.Behaviour):
     Blackboard writes: /detected_objects (dict[str, DetectedObject])
     """
 
-    #ALL_OBJECTS = ['blue_box', 'red_box', 'green_box']
-
     def __init__(self, robot: RobotInterface):
         super().__init__('ReadScene')
         self.robot = robot
@@ -109,17 +107,20 @@ class MoveToHome(ActionNode):
 
     def __init__(self, robot: RobotInterface):
         super().__init__('MoveToHome', robot)
+        self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
+        self.bb.register_key('/detected_objects', access=py_trees.common.Access.READ)
         self._retries = 0
 
     def _reset_state(self):
         # Open gripper (best-effort, don't wait for result)
         self.robot.send_gripper_goal(open=True)
         # Detach and remove all objects
-        for obj_id in ReadScene.ALL_OBJECTS:
+        self.robot.detach_object(self.bb.target_object_id)
+        for obj_id in self.robot._detected_objects.keys():
             self.robot.detach_object(obj_id)
         # Clear planning scene
         scene = PlanningScene(is_diff=True)
-        for obj_id in ReadScene.ALL_OBJECTS:
+        for obj_id in self.bb.detected_objects.keys():
             co = CollisionObject()
             co.header.frame_id = 'world'
             co.header.stamp = self.robot.get_clock().now().to_msg()
