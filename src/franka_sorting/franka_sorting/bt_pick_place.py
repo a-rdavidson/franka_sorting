@@ -492,7 +492,7 @@ class SelectObject(py_trees.behaviour.Behaviour):
                 abs(pose.position.y - cy) < hy)
         
     def update(self):
-         
+        self.robot.log(f'[INFO] SelectObject: Number of items {len(self.bb.detected_objects)}')
         for obj_id, obj in self.bb.detected_objects.items(): 
             if not self._in_container_xy(obj.pose): 
                 self.bb.target_object_id = obj_id

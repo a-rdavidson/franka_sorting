@@ -27,7 +27,7 @@ install(DIRECTORY
 
 install(PROGRAMS
   franka_sorting/robot_interface.py
-  franka_sorting/bt_pick_and_place.py
+  franka_sorting/bt_pick_place.py
   franka_sorting/action_node.py
   franka_sorting/gpd.py
   DESTINATION lib/franka_sorting
