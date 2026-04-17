@@ -276,6 +276,7 @@ def generate_launch_description():
                 planning_scene_monitor_parameters,
                 moveit_controller_manager,
                 {"use_sim_time": use_sim_time},
+                {"controller_manager_name": "controller_manager"},
             ],
         ),
         # move_servo
