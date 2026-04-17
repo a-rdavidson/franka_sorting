@@ -16,7 +16,7 @@ xhost +local:docker > /dev/null
 
 echo "starting container"
 
-docker run -it --rm \
+docker run -it \
 	--name $CONTAINER_NAME \
 	--network host \
 	--privileged \
