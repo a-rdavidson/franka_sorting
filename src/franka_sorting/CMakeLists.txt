@@ -21,6 +21,7 @@ install(DIRECTORY
   config
   world
   srdf
+  rviz
   DESTINATION share/franka_sorting
 )
 
