@@ -19,7 +19,6 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* && apt-get update --fix-missing
     ros-jazzy-ros2-control \
     ros-jazzy-ros2-controllers \
     ros-jazzy-gz-ros2-control \
-  ros-jazzy-moveit-simple-controller-manager \ 
     ros-jazzy-py-trees-ros-viewer \
     ros-jazzy-py-trees \
     ros-jazzy-py-trees-ros \
