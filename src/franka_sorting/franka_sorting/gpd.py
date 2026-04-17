@@ -131,8 +131,8 @@ def gpd_to_panda_pose(pos: np.ndarray, R_gpd: np.ndarray,
 
 # ── Module-level instance ─────────────────────────────────────────────────────
 
-GPD_LIB    = '/root/ws/src/panda_gz_moveit2/deps/gpd/build/libgpd_python.so'
-GPD_CONFIG = '/root/ws/src/panda_gz_moveit2/deps/gpd/cfg/eigen_params.cfg'
+GPD_LIB    = '/franka_ws/src/deps/gpd/build/libgpd_python.so'
+GPD_CONFIG = '/franka_ws/src/deps/gpd/cfg/eigen_params.cfg'
 _PCD_PATH  = '/tmp/gpd_cloud.pcd'
 
 try:
