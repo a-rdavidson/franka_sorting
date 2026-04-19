@@ -40,7 +40,7 @@ WORKDIR /franka_ws
 RUN mkdir -p src/deps
 
 # Install GPD
-RUN git clone https://github.com/atenpas/gpd.git src/deps/gpd && \
+RUN git clone https://github.com/CoMMALab/gpd.git src/deps/gpd && \
     cmake -S src/deps/gpd -B src/deps/gpd/build -DCMAKE_BUILD_TYPE=Release && \
     cmake --build src/deps/gpd/build --target install && \
     ldconfig
