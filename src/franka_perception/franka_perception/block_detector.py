@@ -235,7 +235,7 @@ class BlockDetector(Node):
             #)
 
             #TODO: THIS IS DUMMY FIXED DIMENSIONS. EDIT THIS LATER
-            dimensions = [0.04, 0.04, 0.03]
+            dimensions = [0.04, 0.04, 0.06]
             return (pose_world, dimensions)
 
         except Exception as e:
@@ -269,6 +269,7 @@ class BlockDetector(Node):
             if result:
                 detected_objects.append(result)
 
+        #self.get_logger().info(f"detected_objects {detected_objects}")
         if detected_objects:
             tracked = self.tracker.update(detected_objects)
             self.publish_objects(tracked)

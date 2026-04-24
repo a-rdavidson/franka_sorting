@@ -1,23 +1,13 @@
 <?xml version="1.0" ?>
 <sdf version="1.8">
   <world name="sorting_world">
-	<plugin
-	  filename="libgz-sim-physics-system.so"
-	  name="gz::sim::systems::Physics">
-	</plugin>
-	<plugin
-	  filename="libgz-sim-user-commands-system.so"
-	  name="gz::sim::systems::UserCommands">
-	</plugin>
-	<plugin
-	  filename="libgz-sim-scene-broadcaster-system.so"
-	  name="gz::sim::systems::SceneBroadcaster">
-	</plugin>
-	<plugin
-	  filename="libgz-sim-sensors-system.so"
-	  name="gz::sim::systems::Sensors">
-	  <render_engine>ogre2</render_engine>
-	</plugin>
+    <plugin filename="libgz-sim-physics-system.so" name="gz::sim::systems::Physics" />
+    <plugin filename="libgz-sim-user-commands-system.so" name="gz::sim::systems::UserCommands" />
+    <plugin filename="libgz-sim-scene-broadcaster-system.so" name="gz::sim::systems::SceneBroadcaster" />
+    <plugin filename="libgz-sim-sensors-system.so" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
     <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1.0</real_time_factor>
@@ -32,6 +22,7 @@
 
     <model name="table">
       <static>true</static>
+      <pose>0.5 0 0.35 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry><box><size>1.0 1.5 0.7</size></box></geometry>
@@ -39,45 +30,99 @@
         <visual name="visual">
           <geometry><box><size>1.0 1.5 0.7</size></box></geometry>
           <material>
-            <ambient>0.5 0.3 0.1 1</ambient>
-            <diffuse>0.5 0.3 0.1 1</diffuse>
+            <ambient>0.4 0.25 0.1 1</ambient>
+            <diffuse>0.4 0.25 0.1 1</diffuse>
           </material>
         </visual>
       </link>
-      <pose>0.5 0 0.35 0 0 0</pose>
     </model>
 
-    <model name="obstruction">
+    <model name="red_container">
       <static>true</static>
+      <pose>0.6 0.5 0.71 0 0 0</pose>
       <link name="link">
-        <collision name="collision">
-          <geometry><box><size>0.8 0.05 0.15</size></box></geometry>
-        </collision>
         <visual name="visual">
-          <geometry><box><size>0.8 0.05 0.15</size></box></geometry>
+          <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
           <material>
-            <ambient>0.7 0.7 0.7 1</ambient>
-            <diffuse>0.7 0.7 0.7 1</diffuse>
+            <ambient>0.8 0 0 0.5</ambient>
+            <diffuse>0.8 0 0 0.5</diffuse>
           </material>
         </visual>
+        <collision name="collision">
+          <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        </collision>
       </link>
-      <pose>0.5 0 0.775 0 0 0</pose> 
+    </model>
+
+    <model name="blue_container">
+      <static>true</static>
+      <pose>0.6 -0.5 0.71 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+          <material>
+            <ambient>0 0 0.8 0.5</ambient>
+            <diffuse>0 0 0.8 0.5</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        </collision>
+      </link>
     </model>
 
     <model name="red_block">
+      <pose>0.4 0.2 0.72 0 0 0</pose>
       <link name="link">
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>0.000013</ixx><iyy>0.000013</iyy><izz>0.000013</izz>
+          </inertia>
+        </inertial>
         <collision name="collision">
-          <geometry><box><size>0.04 0.04 0.04</size></box></geometry>
+          <geometry><box><size>0.04 0.04 0.06</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>1.0</mu><mu2>1.0</mu2></ode>
+            </friction>
+          </surface>
         </collision>
         <visual name="visual">
-          <geometry><box><size>0.04 0.04 0.04</size></box></geometry>
+          <geometry><box><size>0.04 0.04 0.06</size></box></geometry>
           <material>
             <ambient>1 0 0 1</ambient>
             <diffuse>1 0 0 1</diffuse>
           </material>
         </visual>
       </link>
-      <pose>0.4 0.2 0.72 0 0 0</pose>
+    </model>
+
+    <model name="blue_block">
+      <pose>0.4 -0.2 0.72 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>0.000013</ixx><iyy>0.000013</iyy><izz>0.000013</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.04 0.04 0.06</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>1.0</mu><mu2>1.0</mu2></ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.04 0.04 0.06</size></box></geometry>
+          <material>
+            <ambient>0 0 1 1</ambient>
+            <diffuse>0 0 1 1</diffuse>
+          </material>
+        </visual>
+      </link>
     </model>
   </world>
 </sdf>
