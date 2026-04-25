@@ -32,6 +32,7 @@ class Track:
 class ObjectTracker:
     def __init__(self):
         self.tracks = []
+        self.delete_ids = []
         self.next_id = 0
 
         self.MAX_DIST = 0.05   # 5 cm matching threshold
@@ -52,7 +53,7 @@ class ObjectTracker:
                 dy = track.pose.position.y - det_pose.position.y
                 dist = np.sqrt(dx * dx + dy * dy)
 
-                if dist < best_dist:
+                if dist < best_dist and track.id not in used_tracks:
                     best_dist = dist
                     best_track = track
 
@@ -75,6 +76,8 @@ class ObjectTracker:
                 track.missed += 1
                 if track.missed < self.MAX_MISSED:
                     new_tracks.append(track)
+                else:
+                    
 
         self.tracks = new_tracks
 
