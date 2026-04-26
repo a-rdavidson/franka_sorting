@@ -16,7 +16,7 @@ from geometry_msgs.msg import Pose  # noqa: F401
 from moveit_msgs.msg import CollisionObject, PlanningScene
 from shape_msgs.msg import SolidPrimitive
 
-from robot_interface import RobotInterface, CONTAINER, DetectedObject
+from robot_interface import RobotInterface, CONTAINERS, DetectedObject
 from action_node import ActionNode, GripperNode
 from gpd import sample_cuboid_surface, detect_grasps, gpd_to_panda_pose, GraspCandidate  # noqa: F401
 
@@ -456,7 +456,7 @@ def init_blackboard():
     bb.register_key('/grasp_proposals',    access=py_trees.common.Access.WRITE)
     bb.register_key('/drop_pose',          access=py_trees.common.Access.WRITE)
     bb.detected_objects = dict()
-    bb.container = CONTAINER
+    bb.container = CONTAINERS['red_container'] #TODO: change this to multiple containers later
     bb.target_object_id = ''
     bb.grasp_proposals = list()
     bb.drop_pose = None

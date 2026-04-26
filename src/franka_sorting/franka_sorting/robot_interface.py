@@ -41,12 +41,29 @@ class DetectedObject:
     dims: list  # [dx, dy, dz] in metres
 
 # Container geometry (four-walled open box, table is the floor)
-CONTAINER = {
+'''CONTAINERS = {
     'center_xy':  (0.55, 0.25),   # (x, y) world frame
     'width':   0.35,           # inner x dimension
     'depth':   0.35,           # inner y dimension
     'height':  0.12,           # wall height above table surface
     'table_z': 0.27,           # table surface z
+}'''
+
+CONTAINERS = {
+    "red_container": {
+        'center_xy':  (0, 0),   # center, default init that gets overwritten with gazebo subscription
+        'width':   0.3,           # inner x dimension
+        'depth':   0.3,           # inner y dimension
+        'height':  0.02,           # wall height above table surface
+        'table_z': 0,           # table surface z, default init that gets overwritten with gazebo subscription
+    },
+    "blue_container": {
+        'center_xy':  (0, 0),   # center, default init that gets overwritten with gazebo subscription
+        'width':   0.3,           # inner x dimension
+        'depth':   0.3,           # inner y dimension
+        'height':  0.02,           # wall height above table surface
+        'table_z': 0,           # table surface z, default init that gets overwritten with gazebo subscription
+    }
 }
 
 
@@ -119,6 +136,13 @@ class RobotInterface(Node):
                 self.create_publisher(Empty, f'/{obj_id}/detach', 10),
             )
         '''
+        for name in CONTAINERS.keys():
+            self.create_subscription(
+                Pose,
+                f'/gz/{name}/pose',
+                lambda msg, n=name: self._on_container_pose(n, msg),
+                10,
+            )
         self.log_lines: list[str] = []
         self._publish_table()
         self.get_logger().info('RobotInterface ready')
@@ -261,33 +285,10 @@ class RobotInterface(Node):
                 Pose(position=Point(x=pos[0], y=pos[1], z=pos[2]),
                      orientation=Quaternion(w=1.0)))
 
-        cx, cy = CONTAINER['center_xy']
-        wh = CONTAINER['height']
-        wt = 0.02
-        hi = CONTAINER['width'] / 2.0
-        hj = CONTAINER['depth'] / 2.0
-        cz = CONTAINER['table_z'] + wh / 2.0
-        hw = hi + wt / 2.0
-        container = CollisionObject()
-        container.header.frame_id = 'world'
-        container.header.stamp = self.get_clock().now().to_msg()
-        container.id = 'container'
-        container.operation = CollisionObject.ADD
-        for dims, pos in [
-            ([hi * 2 + wt * 2, wt, wh], (cx,      cy - hj - wt/2, cz)),
-            ([hi * 2 + wt * 2, wt, wh], (cx,      cy + hj + wt/2, cz)),
-            ([wt, hj * 2,       wh],    (cx - hw, cy,              cz)),
-            ([wt, hj * 2,       wh],    (cx + hw, cy,              cz)),
-        ]:
-            container.primitives.append(
-                SolidPrimitive(type=SolidPrimitive.BOX, dimensions=dims))
-            container.primitive_poses.append(
-                Pose(position=Point(x=pos[0], y=pos[1], z=pos[2]),
-                     orientation=Quaternion(w=1.0)))
+        
 
         scene = PlanningScene(is_diff=True)
         scene.world.collision_objects.append(table)
-        scene.world.collision_objects.append(container)
         self._scene_pub.publish(scene)
 
     def _build_move_goal(self) -> MoveGroup.Goal:
@@ -343,3 +344,35 @@ class RobotInterface(Node):
         acm.default_entry_names = [object_id]
         acm.default_entry_values = [True]
         return scene
+    
+    def _on_container_pose(self, name: str, msg: Pose):
+        CONTAINERS[name]['center_xy'] = (msg.position.x, msg.position.y)
+        CONTAINERS[name]['table_z'] = msg.position.z
+        
+        cx, cy = CONTAINERS[name]['center_xy']
+        wh = CONTAINERS[name]['height']
+        wt = 0.02
+        hi = CONTAINERS[name]['width'] / 2.0
+        hj = CONTAINERS[name]['depth'] / 2.0
+        cz = CONTAINERS[name]['table_z'] + wh / 2.0
+        hw = hi + wt / 2.0
+        container = CollisionObject()
+        container.header.frame_id = 'world'
+        container.header.stamp = self.get_clock().now().to_msg()
+        container.id = name
+        container.operation = CollisionObject.ADD
+        for dims, pos in [
+            ([hi * 2 + wt * 2, wt, wh], (cx,      cy - hj - wt/2, cz)),
+            ([hi * 2 + wt * 2, wt, wh], (cx,      cy + hj + wt/2, cz)),
+            ([wt, hj * 2,       wh],    (cx - hw, cy,              cz)),
+            ([wt, hj * 2,       wh],    (cx + hw, cy,              cz)),
+        ]:
+            container.primitives.append(
+                SolidPrimitive(type=SolidPrimitive.BOX, dimensions=dims))
+            container.primitive_poses.append(
+                Pose(position=Point(x=pos[0], y=pos[1], z=pos[2]),
+                     orientation=Quaternion(w=1.0)))
+            
+        scene = PlanningScene(is_diff=True)
+        scene.world.collision_objects.append(container)
+        self._scene_pub.publish(scene)
