@@ -32,15 +32,16 @@ class Track:
 class ObjectTracker:
     def __init__(self):
         self.tracks = []
-        self.delete_ids = []
+        self.delete_tracks = []
         self.next_id = 0
 
-        self.MAX_DIST = 0.05   # 5 cm matching threshold
+        self.MAX_DIST = 0.15   # 15 cm matching threshold
         self.MAX_MISSED = 10    # frames before deleting track
 
     def _update_for_existing_scene(self, detections):
         #always overwrites current self.tracks with new_tracks.
         new_tracks = []
+        new_deletes = []
         used_tracks = set()
 
         # Match detections → existing tracks
@@ -77,11 +78,24 @@ class ObjectTracker:
                 if track.missed < self.MAX_MISSED:
                     new_tracks.append(track)
                 else:
+                    new_deletes.append(track)
                     
-
+                    
+                    
+        self.delete_tracks = new_deletes
         self.tracks = new_tracks
 
-        return [(t.pose, t.dims, t.id) for t in self.tracks]
+        results = []
+
+        # Active tracks → ADD
+        for t in self.tracks:
+            results.append((t.pose, t.dims, CollisionObject.ADD, t.id))
+
+        # Deleted tracks → REMOVE
+        for t in self.delete_tracks:
+            results.append((t.pose, t.dims, CollisionObject.REMOVE, t.id))
+
+        return results
     # the reason why we have slightly different update function for new scene is so we don't conflate nearby objects as the same
     def _update_for_new_scene(self, detections):
         new_tracks = []
@@ -91,7 +105,7 @@ class ObjectTracker:
             new_tracks.append(new_track)
             
         self.tracks = new_tracks
-        return [(t.pose, t.dims, t.id) for t in self.tracks]
+        return [(t.pose, t.dims, CollisionObject.ADD, t.id) for t in self.tracks]
             
             
         
@@ -291,6 +305,8 @@ class BlockDetector(Node):
             Each dict must contain:
             - 'pose'       : geometry_msgs/Pose (box center, world frame)
             - 'dimensions' : [dx, dy, dz] edge lengths in metres
+            - operation     : remove or add
+            - id            : assigned id of the object
 
         Behavior
         --------
@@ -302,7 +318,7 @@ class BlockDetector(Node):
 
         # 3) Build and publish MarkerArray (wireframe boxes)
         marker_array = self._MarkerArray()
-        for pose, dims, track_id in objects:
+        for pose, dims, operation, track_id in objects:
             dx, dy, dz = dims
 
 
@@ -313,7 +329,13 @@ class BlockDetector(Node):
             m.ns = 'tracked_objects'
             m.id = track_id
             m.type = m.CUBE
-            m.action = m.ADD
+            if (operation == CollisionObject.ADD):
+                m.action = m.ADD
+            elif (operation == CollisionObject.REMOVE):
+                m.action = m.DELETE
+            else:
+                self.get_logger().error(f"Unknown CollisionObject enum sent to PublishObject, default to add")
+                m.action = m.ADD
             m.pose = pose
 
             m.scale.x = dx
@@ -334,12 +356,12 @@ class BlockDetector(Node):
 
         # 4) Publish individual CollisionObject messages for downstream nodes
         # (some systems prefer /collision_object single messages rather than full PlanningScene diffs)
-        for pose, dims, track_id in objects:
+        for pose, dims, operation, track_id in objects:
             co_msg = CollisionObject()
             co_msg.id = f'detected_object_{track_id}'
             co_msg.header.frame_id = 'world'
             co_msg.header.stamp = self.get_clock().now().to_msg()
-            co_msg.operation = CollisionObject.ADD
+            co_msg.operation = operation
 
             box = SolidPrimitive(type=SolidPrimitive.BOX,
                                 dimensions=dims)
