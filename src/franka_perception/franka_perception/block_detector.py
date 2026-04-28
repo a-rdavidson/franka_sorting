@@ -236,6 +236,7 @@ class BlockDetector(Node):
 
             #TODO: THIS IS DUMMY FIXED DIMENSIONS. EDIT THIS LATER
             dimensions = [0.04, 0.04, 0.06]
+            #self.get_logger().info(f"Transform Translation: {transform.transform.translation}")
             return (pose_world, dimensions)
 
         except Exception as e:
