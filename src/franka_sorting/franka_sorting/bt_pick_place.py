@@ -16,7 +16,7 @@ from geometry_msgs.msg import Pose  # noqa: F401
 from moveit_msgs.msg import CollisionObject, PlanningScene
 from shape_msgs.msg import SolidPrimitive
 
-from robot_interface import RobotInterface, CONTAINER, DetectedObject
+from robot_interface import RobotInterface, RED_CONTAINER, BLUE_CONTAINER, DetectedObject
 from action_node import ActionNode, GripperNode
 from gpd import sample_cuboid_surface, detect_grasps, gpd_to_panda_pose, GraspCandidate  # noqa: F401
 
@@ -44,11 +44,22 @@ class ReadScene(py_trees.behaviour.Behaviour):
         self.bb.register_key('/detected_objects', access=py_trees.common.Access.WRITE)
 
     _STABLE_TICKS = 10  # ~2 s at 200 ms/tick
+    
+    def _is_sorted(self, obj_id, obj_pose) -> bool: 
+        container = RED_CONTAINER if 'red' in obj_id.lower() else BLUE_CONTAINER
+
+        cx, cy = container['center_xy']
+        hx, hy = container['width'] / 2.0, container['depth'] / 2.0
+
+        return (abs(obj_pose.position.x - cx) < hx and 
+                abs(obj_pose.position.y - cy) < hy)
 
     def initialise(self) :
+
         for obj_id in self.robot._detected_objects.keys():
             self.robot.detach_object(obj_id)
         self.robot.log('[INFO] ReadScene: detached stale objects')
+
         self._stable = {}   # obj_id -> consecutive stable ticks
         self._last_z = {}   # obj_id -> last seen z
 
@@ -72,10 +83,22 @@ class ReadScene(py_trees.behaviour.Behaviour):
         if not all_stable:
             return py_trees.common.Status.RUNNING
 
+
         # All objects stable — add to planning scene
         scene = PlanningScene(is_diff=True)
         for obj_id in self.robot._detected_objects.keys():
             obj = self.robot._detected_objects[obj_id]
+
+            if self._is_sorted(obj_id, obj.pose):
+                # Skip objects already in container 
+
+                self.robot.log(f"[INFO] ReadScene: skipping {obj_id}, already sorted")
+                co = CollisionObject()
+                co.id = obj_id 
+                co.operation = CollisionObject.REMOVE
+                scene.world.collision_objects.append(co) 
+                continue
+            # Otherwise add object as obstacle
             co = CollisionObject()
             co.header.frame_id = 'world'
             co.header.stamp = self.robot.get_clock().now().to_msg()
@@ -86,6 +109,7 @@ class ReadScene(py_trees.behaviour.Behaviour):
             scene.world.collision_objects.append(co)
             self.robot.log(f'[INFO] ReadScene: {obj_id} at '
                             f'({obj.pose.position.x:.3f}, {obj.pose.position.y:.3f}, {obj.pose.position.z:.3f})')
+
         self.robot._scene_pub.publish(scene)
         self.bb.detected_objects = dict(self.robot._detected_objects)
         return py_trees.common.Status.SUCCESS
@@ -298,7 +322,7 @@ class Retreat(ActionNode):
 
     def _send_goal(self):
         retreat = copy.deepcopy(self.bb.grasp_proposals[0])
-        retreat.position.z += 0.15
+        retreat.position.z += 0.20
         return self.robot.send_pose_goal(
             retreat,
             position_tolerance=0.01,
@@ -357,7 +381,8 @@ class CheckAllObjectsInContainer(py_trees.behaviour.Behaviour):
         self.robot = robot
         self.bb = py_trees.blackboard.Client(name='CheckAllObjectsInContainer')
         self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
-        self.bb.register_key('/container',        access=py_trees.common.Access.READ)
+        self.bb.register_key('/red_container',        access=py_trees.common.Access.READ)
+        self.bb.register_key('/blue_container',        access=py_trees.common.Access.READ)
         self.bb.register_key('/detected_objects', access=py_trees.common.Access.READ)
 
     def initialise(self):
@@ -365,11 +390,13 @@ class CheckAllObjectsInContainer(py_trees.behaviour.Behaviour):
                           + int(self._TIMEOUT_SEC * 1e9))
         self._stable = 0
 
-    def _in_container_xy(self, pose) -> bool:
+    def _in_correct_container_(self, pose, obj_id) -> bool:
         if pose is None:
             return False
-        cx, cy = self.bb.container['center_xy']
-        hx, hy = self.bb.container['width'] / 2.0, self.bb.container['depth'] / 2.0
+        container = self.bb.red_container if 'red' in obj_id.lower() else self.bb.blue_container
+
+        cx, cy = container['center_xy']
+        hx, hy = container['width'] / 2.0, container['depth'] / 2.0
         return (abs(pose.position.x - cx) < hx and
                 abs(pose.position.y - cy) < hy)
 
@@ -395,8 +422,8 @@ class CheckAllObjectsInContainer(py_trees.behaviour.Behaviour):
         
         
         all_in = all(
-            self._in_container_xy(o.pose)
-            for o in self.robot._detected_objects.values()
+            self._in_correct_container_(o.pose, o_id)
+            for o_id, o in self.robot._detected_objects.items()
         )
         if all_in:
             self.robot.log('[OK]   Goal Status: SUCCESS — all objects sorted')
@@ -450,13 +477,19 @@ def build_tree(robot: RobotInterface) -> py_trees.behaviour.Behaviour:  # noqa: 
 
 def init_blackboard():
     bb = py_trees.blackboard.Client(name='init')
-    bb.register_key('/detected_objects',   access=py_trees.common.Access.WRITE)
-    bb.register_key('/container',          access=py_trees.common.Access.WRITE)
-    bb.register_key('/target_object_id',   access=py_trees.common.Access.WRITE)
-    bb.register_key('/grasp_proposals',    access=py_trees.common.Access.WRITE)
-    bb.register_key('/drop_pose',          access=py_trees.common.Access.WRITE)
+    bb.register_key('/detected_objects',          access=py_trees.common.Access.WRITE)
+    bb.register_key('/red_container',             access=py_trees.common.Access.WRITE)
+    bb.register_key('/blue_container',            access=py_trees.common.Access.WRITE)
+    bb.register_key('/target_container',          access=py_trees.common.Access.WRITE)
+    bb.register_key('/target_object_id',          access=py_trees.common.Access.WRITE)
+    bb.register_key('/grasp_proposals',           access=py_trees.common.Access.WRITE)
+    bb.register_key('/drop_pose',                 access=py_trees.common.Access.WRITE)
     bb.detected_objects = dict()
-    bb.container = CONTAINER
+
+    bb.red_container = RED_CONTAINER
+    bb.blue_container = BLUE_CONTAINER
+    bb.target_container = dict() 
+
     bb.target_object_id = ''
     bb.grasp_proposals = list()
     bb.drop_pose = None
@@ -479,24 +512,37 @@ class SelectObject(py_trees.behaviour.Behaviour):
         self.robot = robot
         self.bb = py_trees.blackboard.Client(name='SelectObject')
         self.bb.register_key('/target_object_id', access=py_trees.common.Access.WRITE)
+        self.bb.register_key('/target_container', access=py_trees.common.Access.WRITE)
+
         self.bb.register_key('/detected_objects', access=py_trees.common.Access.READ)
-        self.bb.register_key('/container', access=py_trees.common.Access.READ)
+        self.bb.register_key('/red_container', access=py_trees.common.Access.READ)
+        self.bb.register_key('/blue_container', access=py_trees.common.Access.READ)
         # TODO: register the blackboard keys you need
 
-    def _in_container_xy(self, pose) -> bool:
-        if pose is None:
+    def _get_correct_container(self, obj_id): 
+        if 'red' in obj_id.lower(): 
+            return self.bb.red_container
+        elif 'blue' in obj_id.lower(): 
+            return self.bb.blue_container
+        return self.bb.red_container # fallback to red
+
+    def _in_container_xy(self, pose, container) -> bool:
+        if pose is None or not container:
             return False
-        cx, cy = self.bb.container['center_xy']
-        hx, hy = self.bb.container['width'] / 2.0, self.bb.container['depth'] / 2.0
+        cx, cy = container['center_xy']
+        hx, hy = container['width'] / 2.0, container['depth'] / 2.0
         return (abs(pose.position.x - cx) < hx and
                 abs(pose.position.y - cy) < hy)
         
     def update(self):
         self.robot.log(f'[INFO] SelectObject: Number of items {len(self.bb.detected_objects)}')
         for obj_id, obj in self.bb.detected_objects.items(): 
-            if not self._in_container_xy(obj.pose): 
+            correct_container = self._get_correct_container(obj_id)
+
+            if not self._in_container_xy(obj.pose, correct_container): 
                 self.bb.target_object_id = obj_id
-                self.robot.log(f'[INFO] SelectObject: selected {obj_id}')
+                self.bb.target_container = correct_container
+                self.robot.log(f'[INFO] SelectObject: selected {obj_id} for sorting')
                 return py_trees.common.Status.SUCCESS
         return py_trees.common.Status.FAILURE
 
@@ -577,23 +623,23 @@ class ProposeDropPose(py_trees.behaviour.Behaviour):
         super().__init__('ProposeDropPose')
         self.robot = robot
         self.bb = py_trees.blackboard.Client(name='ProposeDropPose')
-        self.bb.register_key('/container', access=py_trees.common.Access.READ)
+        self.bb.register_key('/target_container', access=py_trees.common.Access.READ)
         self.bb.register_key('/drop_pose', access=py_trees.common.Access.WRITE)
         # TODO: register the blackboard keys you need
 
     def update(self):
-        cx, cy = self.bb.container['center_xy']
+        cx, cy = self.bb.target_container['center_xy']
         
         # Half width - 3cm so object isn't dropped on the rim
-        hx = (self.bb.container['width'] / 2.0) - 0.03
-        hy = (self.bb.container['depth'] / 2.0) - 0.03
+        hx = (self.bb.target_container['width'] / 2.0) - 0.03
+        hy = (self.bb.target_container['depth'] / 2.0) - 0.03
 
         drop_x = cx + np.random.uniform(-hx, hx)
         drop_y = cy + np.random.uniform(-hy, hy)
         
         # Add 10cm to height of container walls for drop height
-        wall_height = self.bb.container.get('height') + self.bb.container.get('table_z')
-        drop_z = wall_height + 0.1
+        wall_height = self.bb.target_container.get('height') + self.bb.target_container.get('table_z')
+        drop_z = wall_height + 0.10
 
         drop = Pose()
         drop.position.x = float(drop_x)

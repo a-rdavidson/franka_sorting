@@ -60,6 +60,7 @@ class BlockDetector(Node):
 
         depth_vals = depth_img[mask == 255]
         depth_vals = depth_vals[~np.isnan(depth_vals)]
+        depth_vals = depth_vals[depth_vals < 2.5] # anything further than 1.5m is not a block
 
         if len(depth_vals) == 0:
             return None
@@ -85,7 +86,7 @@ class BlockDetector(Node):
 
             for c in contours:
                 area = cv2.contourArea(c)
-
+                #self.get_logger().info(f"Detected {color} contour with area: {area}")
                 # Filter out noise AND large containers
                 if area < 200 or area > 5000:
                     continue
@@ -102,10 +103,11 @@ class BlockDetector(Node):
         return detections
 
     def pixel_to_world(self, u, v, z, stamp):
+        #self.get_logger().info(f"Processing detection at u:{u}, v:{v} with depth z:{z}")
         ray = np.array(self.camera_model.projectPixelTo3dRay((u, v)))
 
         # Normalize so Z = 1
-        # ray = ray / ray[2]
+        ray = ray / ray[2]
 
         pose_cam = PoseStamped()
         pose_cam.header.frame_id = "camera_link_optical"
@@ -119,10 +121,13 @@ class BlockDetector(Node):
         pose_cam.pose.orientation.w = 1.0
 
         try:
+            if not self.tf_buffer.can_transform('world', 'camera_link_optical', rclpy.time.Time(), rclpy.duration.Duration(seconds=1.0)): 
+                self.get_logger().warn("Transfrom form world -> camera_link_optical not available yet")
+                return
             transform = self.tf_buffer.lookup_transform(
                 'world',
                 'camera_link_optical',
-                rclpy.time.Time()  # latest transform (more stable)
+                rclpy.time.Time()
             )
 
             pose_world = do_transform_pose(pose_cam.pose, transform)

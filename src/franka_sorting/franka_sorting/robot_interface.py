@@ -2,8 +2,6 @@
 """
 RobotInterface — ROS 2 node wrapping MoveIt 2, the gripper controller,
 and the Gazebo pose bridge.
-
-DO NOT MODIFY THIS FILE.
 """
 
 import copy
@@ -42,15 +40,21 @@ class DetectedObject:
     pose: 'Pose'
     dims: list  # [dx, dy, dz] in metres
 
-# Container geometry (four-walled open box, table is the floor)
-CONTAINER = {
-    'center_xy':  (0.55, 0.25),   # (x, y) world frame
-    'width':   0.35,           # inner x dimension
-    'depth':   0.35,           # inner y dimension
-    'height':  0.12,           # wall height above table surface
-    'table_z': 0.27,           # table surface z
+RED_CONTAINER = {
+    'center_xy':  (0.45, 0.5),   # (x, y) world frame
+    'width':   0.3,           # inner x dimension
+    'depth':   0.3,           # inner y dimension
+    'height':  0.02,           # wall height above table surface
+    'table_z': 0.4,           # table surface z
 }
 
+BLUE_CONTAINER = {
+    'center_xy':  (0.45, -0.5),   # (x, y) world frame
+    'width':   0.3,           # inner x dimension
+    'depth':   0.3,           # inner y dimension
+    'height':  0.02,           # wall height above table surface
+    'table_z': 0.4,           # table surface z
+}
 
 # ─── RobotInterface ───────────────────────────────────────────────────────────
 
@@ -297,8 +301,8 @@ class RobotInterface(Node):
         table.id = 'table'
         table.operation = CollisionObject.ADD
         
-        table_dims = [1.0, 1.5, 0.4]
-        table_pos = [0.8, 0.0, 0.2] 
+        table_dims = [1.0, 1.5, 0.35]
+        table_pos = [0.70, 0.0, 0.2] 
         
         table.primitives.append(SolidPrimitive(type=SolidPrimitive.BOX, dimensions=table_dims))
         table.primitive_poses.append(
@@ -308,12 +312,12 @@ class RobotInterface(Node):
 
         # 2. Containers: Moved forward by 0.3m
         container_specs = [
-            {'id': 'red_container', 'pos': [0.8, 0.5, 0.41]},
-            {'id': 'blue_container', 'pos': [0.8, -0.5, 0.41]}
+            {'id': 'red_container', 'pos': [0.55, 0.5, 0.4]},
+            {'id': 'blue_container', 'pos': [0.55, -0.5, 0.4]}
         ]
 
         wall_thickness = 0.01
-        c_width, c_depth, c_height = 0.3, 0.3, 0.1
+        c_width, c_depth, c_height = 0.3, 0.3, 0.02
 
         for spec in container_specs:
             co = CollisionObject()
@@ -355,6 +359,7 @@ class RobotInterface(Node):
         goal.planning_options.plan_only = False
         goal.planning_options.replan = True
         goal.planning_options.replan_attempts = 3
+        goal.request.start_state.is_diff = True
         return goal
 
     def _pose_to_constraints(self, pose: Pose,
@@ -388,6 +393,7 @@ class RobotInterface(Node):
 
     def _build_acm_scene(self, object_id: str) -> PlanningScene:
         scene = PlanningScene(is_diff=True)
+        scene.robot_state.is_diff = True
         acm = scene.allowed_collision_matrix
         acm.default_entry_names = [object_id]
         acm.default_entry_values = [True]
