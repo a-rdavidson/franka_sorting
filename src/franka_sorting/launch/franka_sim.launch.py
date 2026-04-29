@@ -149,19 +149,19 @@ def generate_launch_description():
     #    arguments=["panda_arm_controller", "--controller-manager", "/controller_manager"], 
     #    parameters=[{'use_sim_time': True}]
     #)
-    camera_tf = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        arguments = ['0.8', '0', '2.0', '3.14159', '1.5708', '0', 'world', 'camera_link'],
-        parameters=[{'use_sim_time': True}]
-    )
-    camera_optical_tf = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='camera_optical_broadcaster',
-        arguments=['0', '0', '0', '-1.5708', '0', '-1.5708', 'camera_link', 'camera_link_optical'],
-        parameters=[{'use_sim_time': True}]
-    )
+    #camera_tf = Node(
+    #    package='tf2_ros',
+    #    executable='static_transform_publisher',
+    #    arguments = ['0.8', '0', '2.0', '3.14159', '1.5708', '0', 'world', 'camera_link'],
+    #    parameters=[{'use_sim_time': True}]
+    #)
+    #camera_optical_tf = Node(
+    #    package='tf2_ros',
+    #    executable='static_transform_publisher',
+    #    name='camera_optical_broadcaster',
+    #    arguments=['0', '0', '0', '-1.5708', '0', '-1.5708', 'camera_link', 'camera_link_optical'],
+    #    parameters=[{'use_sim_time': True}]
+    #)
     
     home_pose = Node(
         package='franka_sorting',
@@ -179,8 +179,8 @@ def generate_launch_description():
         load_gripper_controller,
         # spawn_camera,
         bridge, 
-        camera_tf,
-        camera_optical_tf,
+        # camera_tf,
+        # camera_optical_tf,
         RegisterEventHandler(
             event_handler=OnProcessExit(
                 target_action=spawn_robot, 
