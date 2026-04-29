@@ -547,12 +547,13 @@ class ProposeGrasps(py_trees.behaviour.Behaviour):
             z_col = cand.R[2, 0]
             grasp_z = cand.pos[2]
             
+            self.robot.log(f'[DEBUG] Grasp proposed at Z: {grasp_z:.3f}, Approach Z: {z_col:.3f}')
             # Approach should be mostly downward
             if z_col > -0.3: 
                 continue
             
             # Don't want arm to collide with table
-            if grasp_z < 0.2: 
+            if grasp_z < 0.02: 
                 continue
 
             valid_poses.append(gpd_to_panda_pose(cand.pos, cand.R))

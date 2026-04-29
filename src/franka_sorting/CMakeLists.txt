@@ -32,6 +32,7 @@ install(PROGRAMS
   franka_sorting/gpd.py
   DESTINATION lib/franka_sorting
 )
+install(PROGRAMS franka_sorting/home_pose.py DESTINATION lib/franka_sorting RENAME home_pose)
 
 ament_package()
 

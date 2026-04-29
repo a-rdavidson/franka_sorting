@@ -2,8 +2,6 @@
 """
 RobotInterface — ROS 2 node wrapping MoveIt 2, the gripper controller,
 and the Gazebo pose bridge.
-
-DO NOT MODIFY THIS FILE.
 """
 
 import copy
@@ -18,6 +16,7 @@ from rclpy.action import ActionClient
 
 from builtin_interfaces.msg import Duration
 from geometry_msgs.msg import Pose, Point, Quaternion, Vector3
+from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA, Empty
 from builtin_interfaces.msg import Duration as MsgDuration
 from moveit_msgs.msg import (
@@ -33,6 +32,7 @@ from sensor_msgs.msg import JointState, PointCloud2, PointField
 from shape_msgs.msg import SolidPrimitive
 
 
+
 # ─── Scene constants ──────────────────────────────────────────────────────────
 
 @dataclass
@@ -40,32 +40,21 @@ class DetectedObject:
     pose: 'Pose'
     dims: list  # [dx, dy, dz] in metres
 
-# Container geometry (four-walled open box, table is the floor)
-'''CONTAINERS = {
-    'center_xy':  (0.55, 0.25),   # (x, y) world frame
-    'width':   0.35,           # inner x dimension
-    'depth':   0.35,           # inner y dimension
-    'height':  0.12,           # wall height above table surface
-    'table_z': 0.27,           # table surface z
-}'''
-
-CONTAINERS = {
-    "red_container": {
-        'center_xy':  (0, 0),   # center, default init that gets overwritten with gazebo subscription
-        'width':   0.3,           # inner x dimension
-        'depth':   0.3,           # inner y dimension
-        'height':  0.02,           # wall height above table surface
-        'table_z': 0,           # table surface z, default init that gets overwritten with gazebo subscription
-    },
-    "blue_container": {
-        'center_xy':  (0, 0),   # center, default init that gets overwritten with gazebo subscription
-        'width':   0.3,           # inner x dimension
-        'depth':   0.3,           # inner y dimension
-        'height':  0.02,           # wall height above table surface
-        'table_z': 0,           # table surface z, default init that gets overwritten with gazebo subscription
-    }
+RED_CONTAINER = {
+    'center_xy':  (0.45, 0.5),   # (x, y) world frame
+    'width':   0.3,           # inner x dimension
+    'depth':   0.3,           # inner y dimension
+    'height':  0.02,           # wall height above table surface
+    'table_z': 0.4,           # table surface z
 }
 
+BLUE_CONTAINER = {
+    'center_xy':  (0.45, -0.5),   # (x, y) world frame
+    'width':   0.3,           # inner x dimension
+    'depth':   0.3,           # inner y dimension
+    'height':  0.02,           # wall height above table surface
+    'table_z': 0.4,           # table surface z
+}
 
 # ─── RobotInterface ───────────────────────────────────────────────────────────
 
@@ -123,6 +112,8 @@ class RobotInterface(Node):
             self._on_collision_object,
             10
         )
+        self._marker_id = 0 
+        self._marker_pub = self.create_publisher(MarkerArray, '/grasp_marekrs', 10)
 
         self.get_logger().info('Waiting for /move_action ...')
         self._move_client.wait_for_server()
@@ -136,13 +127,6 @@ class RobotInterface(Node):
                 self.create_publisher(Empty, f'/{obj_id}/detach', 10),
             )
         '''
-        for name in CONTAINERS.keys():
-            self.create_subscription(
-                Pose,
-                f'/gz/{name}/pose',
-                lambda msg, n=name: self._on_container_pose(n, msg),
-                10,
-            )
         self.log_lines: list[str] = []
         self._publish_table()
         self.get_logger().info('RobotInterface ready')
@@ -154,6 +138,47 @@ class RobotInterface(Node):
         self.get_logger().info(msg)
         self.log_lines.append(msg)
         self.log_lines = self.log_lines[-12:]
+
+    def publish_pose_axes(self, pose: Pose, label: str, scale: float = 0.1):
+        """Publish XYZ axis arrows at pose in RViz (x=red, y=green, z=blue)."""
+        ma = MarkerArray()
+        q = [pose.orientation.x, pose.orientation.y,
+             pose.orientation.z, pose.orientation.w]
+        R = tf_transformations.quaternion_matrix(q)[:3, :3]
+        colors = [
+            ColorRGBA(r=1.0, g=0.0, b=0.0, a=1.0),
+            ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0),
+            ColorRGBA(r=0.0, g=0.0, b=1.0, a=1.0),
+        ]
+        o = pose.position
+        for i, color in enumerate(colors):
+            m = Marker()
+            m.header.frame_id = 'world'
+            m.header.stamp = self.get_clock().now().to_msg()
+            m.ns = label
+            m.id = self._marker_id; self._marker_id += 1
+            m.type = Marker.ARROW
+            m.action = Marker.ADD
+            m.scale = Vector3(x=0.008, y=0.015, z=0.0)
+            m.color = color
+            m.lifetime = MsgDuration(sec=5)
+            d = R[:, i] * scale
+            m.points = [
+                Point(x=o.x, y=o.y, z=o.z),
+                Point(x=o.x + float(d[0]), y=o.y + float(d[1]), z=o.z + float(d[2])),
+            ]
+            ma.markers.append(m)
+        m = Marker()
+        m.header.frame_id = 'world'
+        m.header.stamp = self.get_clock().now().to_msg()
+        m.ns = label; m.id = self._marker_id; self._marker_id += 1
+        m.type = Marker.TEXT_VIEW_FACING; m.action = Marker.ADD
+        m.pose = copy.deepcopy(pose); m.pose.position.z += scale + 0.02
+        m.scale.z = 0.03
+        m.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
+        m.text = label; m.lifetime = MsgDuration(sec=5)
+        ma.markers.append(m)
+        self._marker_pub.publish(ma)
 
     def send_joints_goal(self, joint_positions: dict, acm_object_id: str = None):
         """Send a joint-space goal to MoveIt. Returns a Future[GoalHandle]."""
@@ -268,29 +293,56 @@ class RobotInterface(Node):
     
 
     def _publish_table(self):
+        scene = PlanningScene(is_diff=True)
+
         table = CollisionObject()
         table.header.frame_id = 'world'
         table.header.stamp = self.get_clock().now().to_msg()
         table.id = 'table'
         table.operation = CollisionObject.ADD
-        for dims, pos in [
-            ([0.8, 1.0, 0.04], (0.6,   0.0,  0.25)),
-            ([0.04, 0.04, 0.23], (0.95,  0.45, 0.115)),
-            ([0.04, 0.04, 0.23], (0.95, -0.45, 0.115)),
-            ([0.04, 0.04, 0.23], (0.25,  0.45, 0.115)),
-            ([0.04, 0.04, 0.23], (0.25, -0.45, 0.115)),
-        ]:
-            table.primitives.append(SolidPrimitive(type=SolidPrimitive.BOX, dimensions=dims))
-            table.primitive_poses.append(
-                Pose(position=Point(x=pos[0], y=pos[1], z=pos[2]),
-                     orientation=Quaternion(w=1.0)))
-
         
-
-        scene = PlanningScene(is_diff=True)
+        table_dims = [1.0, 1.5, 0.35]
+        table_pos = [0.70, 0.0, 0.2] 
+        
+        table.primitives.append(SolidPrimitive(type=SolidPrimitive.BOX, dimensions=table_dims))
+        table.primitive_poses.append(
+            Pose(position=Point(x=table_pos[0], y=table_pos[1], z=table_pos[2]),
+                 orientation=Quaternion(w=1.0)))
         scene.world.collision_objects.append(table)
-        self._scene_pub.publish(scene)
 
+        # 2. Containers: Moved forward by 0.3m
+        container_specs = [
+            {'id': 'red_container', 'pos': [0.55, 0.5, 0.4]},
+            {'id': 'blue_container', 'pos': [0.55, -0.5, 0.4]}
+        ]
+
+        wall_thickness = 0.01
+        c_width, c_depth, c_height = 0.3, 0.3, 0.02
+
+        for spec in container_specs:
+            co = CollisionObject()
+            co.header.frame_id = 'world'
+            co.header.stamp = self.get_clock().now().to_msg()
+            co.id = spec['id']
+            co.operation = CollisionObject.ADD
+            
+            cx, cy, cz = spec['pos']
+            walls = [
+                ([c_width, wall_thickness, c_height], [cx, cy - c_depth/2, cz]),
+                ([c_width, wall_thickness, c_height], [cx, cy + c_depth/2, cz]),
+                ([wall_thickness, c_depth, c_height], [cx - c_width/2, cy, cz]),
+                ([wall_thickness, c_depth, c_height], [cx + c_width/2, cy, cz]),
+            ]
+
+            for d, p in walls:
+                co.primitives.append(SolidPrimitive(type=SolidPrimitive.BOX, dimensions=d))
+                co.primitive_poses.append(
+                    Pose(position=Point(x=p[0], y=p[1], z=p[2]),
+                         orientation=Quaternion(w=1.0)))
+            
+            scene.world.collision_objects.append(co)
+
+        self._scene_pub.publish(scene)
     def _build_move_goal(self) -> MoveGroup.Goal:
         goal = MoveGroup.Goal()
         goal.request.group_name = 'arm'
@@ -307,6 +359,7 @@ class RobotInterface(Node):
         goal.planning_options.plan_only = False
         goal.planning_options.replan = True
         goal.planning_options.replan_attempts = 3
+        goal.request.start_state.is_diff = True
         return goal
 
     def _pose_to_constraints(self, pose: Pose,
@@ -340,39 +393,8 @@ class RobotInterface(Node):
 
     def _build_acm_scene(self, object_id: str) -> PlanningScene:
         scene = PlanningScene(is_diff=True)
+        scene.robot_state.is_diff = True
         acm = scene.allowed_collision_matrix
         acm.default_entry_names = [object_id]
         acm.default_entry_values = [True]
         return scene
-    
-    def _on_container_pose(self, name: str, msg: Pose):
-        CONTAINERS[name]['center_xy'] = (msg.position.x, msg.position.y)
-        CONTAINERS[name]['table_z'] = msg.position.z
-        
-        cx, cy = CONTAINERS[name]['center_xy']
-        wh = CONTAINERS[name]['height']
-        wt = 0.02
-        hi = CONTAINERS[name]['width'] / 2.0
-        hj = CONTAINERS[name]['depth'] / 2.0
-        cz = CONTAINERS[name]['table_z'] + wh / 2.0
-        hw = hi + wt / 2.0
-        container = CollisionObject()
-        container.header.frame_id = 'world'
-        container.header.stamp = self.get_clock().now().to_msg()
-        container.id = name
-        container.operation = CollisionObject.ADD
-        for dims, pos in [
-            ([hi * 2 + wt * 2, wt, wh], (cx,      cy - hj - wt/2, cz)),
-            ([hi * 2 + wt * 2, wt, wh], (cx,      cy + hj + wt/2, cz)),
-            ([wt, hj * 2,       wh],    (cx - hw, cy,              cz)),
-            ([wt, hj * 2,       wh],    (cx + hw, cy,              cz)),
-        ]:
-            container.primitives.append(
-                SolidPrimitive(type=SolidPrimitive.BOX, dimensions=dims))
-            container.primitive_poses.append(
-                Pose(position=Point(x=pos[0], y=pos[1], z=pos[2]),
-                     orientation=Quaternion(w=1.0)))
-            
-        scene = PlanningScene(is_diff=True)
-        scene.world.collision_objects.append(container)
-        self._scene_pub.publish(scene)

@@ -221,20 +221,20 @@ def generate_launch_description():
     # List of nodes to be launched
     nodes = [
         # robot_state_publisher
-        Node(
-            package="robot_state_publisher",
-            executable="robot_state_publisher",
-            output="log",
-            arguments=["--ros-args", "--log-level", log_level],
-            parameters=[
-                robot_description,
-                {
-                    "publish_frequency": 50.0,
-                    "frame_prefix": "",
-                    "use_sim_time": use_sim_time,
-                },
-            ],
-        ),
+        #Node(
+        #    package="robot_state_publisher",
+        #    executable="robot_state_publisher",
+        #    output="log",
+        #    arguments=["--ros-args", "--log-level", log_level],
+        #    parameters=[
+        #        robot_description,
+        #        {
+        #            "publish_frequency": 50.0,
+        #            "frame_prefix": "",
+        #            "use_sim_time": use_sim_time,
+        #        },
+        #    ],
+        #),
         # ros2_control_node (only for fake controller)
         Node(
             package="controller_manager",

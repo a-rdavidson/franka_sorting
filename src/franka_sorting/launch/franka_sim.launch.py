@@ -46,7 +46,6 @@ def generate_launch_description():
         launch_arguments=[
             ("ros2_control_plugin", "gz"),
             ("use_sim_time", "true"),
-            ("load_robot_description", "false"), 
         ],
     ) 
     robot_state_publisher = Node(
@@ -59,19 +58,37 @@ def generate_launch_description():
     spawn_robot = Node(
         package='ros_gz_sim',
         executable='create',
-        arguments=['-topic', 'robot_description', '-name', 'franka_panda', '-x', '-0.3'],
-        output='screen'
-    )
-
-    spawn_camera = Node(
-        package='ros_gz_sim',
-        executable='create',
-        arguments = [
-            '-string', camera_description_content, 
-            '-name', 'external_camera'
+        arguments=[
+            '-topic', 'robot_description',
+            '-name', 'franka_panda',
+            '-J', 'panda_joint1', '0.0',
+            '-J', 'panda_joint2', '-0.785',
+            '-J', 'panda_joint3', '0.0',
+            '-J', 'panda_joint4', '-1.5708',  # Centered in joint bounds
+            '-J', 'panda_joint5', '0.0',
+            '-J', 'panda_joint6', '1.8675',     # Within [0.13, 3.60]
+            '-J', 'panda_joint7', '0.785'
         ],
         output='screen'
     )
+    
+    #robot_tf = Node(
+    #    package='tf2_ros',
+    #    executable='static_transform_publisher',
+    #    name='world_to_robot_base',
+    #    # arguments: x y z yaw pitch roll frame_id child_frame_id
+    #    arguments=['-0.3', '0', '0', '0', '0', '0', 'world', 'panda_link0']
+    #)
+
+    #spawn_camera = Node(
+    #    package='ros_gz_sim',
+    #    executable='create',
+    #    arguments = [
+    #        '-string', camera_description_content, 
+    #        '-name', 'external_camera'
+    #    ],
+    #    output='screen'
+    #)
 
     #rviz = Node(
     #    package='rviz2',
@@ -101,29 +118,29 @@ def generate_launch_description():
             '/camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
             '/camera/depth_image@sensor_msgs/msg/Image[gz.msgs.Image',
             '/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-            '/tf_static@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-            '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model', 
+            #'/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+            #'/tf_static@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+            #'/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model', 
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'
         ], 
         parameters=[{'use_sim_time': True}],
         output='screen'
     )
 
-    #load_joint_state_broadcaster = Node(
-    #    package="controller_manager", 
-    #    executable="spawner", 
-    #    arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"], 
-    #    parameters=[{'use_sim_time': True}]
-    #)
+    load_joint_state_broadcaster = Node(
+        package="controller_manager", 
+        executable="spawner", 
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"], 
+        parameters=[{'use_sim_time': True}]
+    )
 
 
-    #load_gripper_controller = Node(
-    #    package="controller_manager", 
-    #    executable="spawner", 
-    #    arguments=["panda_gripper_controller", "--controller-manager", "/controller_manager"], 
-    #    parameters=[{'use_sim_time': True}]
-    #)
+    load_gripper_controller = Node(
+        package="controller_manager", 
+        executable="spawner", 
+        arguments=["panda_gripper_controller", "--controller-manager", "/controller_manager"], 
+        parameters=[{'use_sim_time': True}]
+    )
 
 
     #load_arm_controller = Node(
@@ -135,7 +152,8 @@ def generate_launch_description():
     camera_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        arguments = ['0.6', '0', '1.2', '0', '1.5708', '0', 'world', 'camera_link']
+        arguments = ['0.8', '0', '2.0', '3.14159', '1.5708', '0', 'world', 'camera_link'],
+        parameters=[{'use_sim_time': True}]
     )
     camera_optical_tf = Node(
         package='tf2_ros',
@@ -144,22 +162,41 @@ def generate_launch_description():
         arguments=['0', '0', '0', '-1.5708', '0', '-1.5708', 'camera_link', 'camera_link_optical'],
         parameters=[{'use_sim_time': True}]
     )
+    
+    home_pose = Node(
+        package='franka_sorting',
+        executable='home_pose',
+        name='home_pose_node',
+        output='screen',
+        parameters=[{'use_sim_time': True}]
+    )
 
     return LaunchDescription([
         resource_path, 
         gazebo,
         robot_state_publisher,
         spawn_robot,
-        spawn_camera,
+        load_gripper_controller,
+        # spawn_camera,
         bridge, 
-        block_listener_node, 
-        block_detector_node,
         camera_tf,
         camera_optical_tf,
         RegisterEventHandler(
             event_handler=OnProcessExit(
-                target_action=spawn_robot,
-                on_exit=[move_group]
+                target_action=spawn_robot, 
+                on_exit=[load_joint_state_broadcaster]
+            )
+        ),
+        RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=load_joint_state_broadcaster,
+                on_exit=[home_pose, move_group]
+            )
+        ),
+        RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=home_pose,
+                on_exit=[ block_detector_node, block_listener_node]
             )
         )
     ])
