@@ -7,7 +7,6 @@ endif()
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
@@ -21,8 +20,19 @@ install(DIRECTORY
   description
   config
   world
+  srdf
+  rviz
   DESTINATION share/franka_sorting
 )
 
+install(PROGRAMS
+  franka_sorting/robot_interface.py
+  franka_sorting/bt_pick_place.py
+  franka_sorting/action_node.py
+  franka_sorting/gpd.py
+  DESTINATION lib/franka_sorting
+)
+install(PROGRAMS franka_sorting/home_pose.py DESTINATION lib/franka_sorting RENAME home_pose)
 
 ament_package()
+

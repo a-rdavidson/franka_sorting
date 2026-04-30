@@ -1,4 +1,3 @@
-
 import rclpy
 from rclpy.node import Node
 
@@ -11,263 +10,257 @@ import numpy as np
 import message_filters
 
 from image_geometry import PinholeCameraModel
-
+from tf_transformations import quaternion_from_euler
 import tf2_ros
 from tf2_geometry_msgs import do_transform_pose
-from tf_transformations import quaternion_from_euler
-from geometry_msgs.msg import Pose, Point, Quaternion
+from geometry_msgs.msg import Pose, Quaternion
 from shape_msgs.msg import SolidPrimitive
-from moveit_msgs.msg import CollisionObject, PlanningScene
+from moveit_msgs.msg import CollisionObject
 from visualization_msgs.msg import MarkerArray, Marker
 
+DIMENSIONS = [0.06, 0.06, 0.08]
+
+class Track:
+    def __init__(self, pose, dims, track_id, color):
+        self.pose = pose
+        self.dims = dims
+        self.id = track_id
+        self.color = color
+        self.missed = 0
+
+class ObjectTracker:
+    def __init__(self):
+        self.tracks = []
+        self.delete_tracks = []
+        self.next_id = 0
+        self.MAX_DIST = 0.15   # 15 cm matching threshold
+        self.MAX_MISSED = 25    # Frames before deleting track; slightly increased for stability
+
+    def _update_for_existing_scene(self, detections, occlusion_check_func=None):
+        new_tracks = []
+        new_deletes = []
+        used_tracks = set()
+
+        # Match detections → existing tracks
+        for det_pose, color in detections:
+            best_track = None
+            best_dist = float('inf')
+
+            for track in self.tracks:
+                dx = track.pose.position.x - det_pose.position.x
+                dy = track.pose.position.y - det_pose.position.y
+                dist = np.sqrt(dx * dx + dy * dy)
+
+                if color == track.color and dist < best_dist and track.id not in used_tracks:
+                    best_dist = dist
+                    best_track = track
+
+            if best_track and best_dist < self.MAX_DIST:
+                best_track.pose = det_pose
+                best_track.dims = DIMENSIONS
+                best_track.missed = 0
+                new_tracks.append(best_track)
+                used_tracks.add(best_track.id)
+            else:
+                new_track = Track(det_pose, DIMENSIONS, self.next_id, color)
+                self.next_id += 1
+                new_tracks.append(new_track)
+
+        # Handle unmatched tracks with Occlusion Awareness
+        for track in self.tracks:
+            if track.id not in used_tracks:
+                # If the arm is likely blocking the view, freeze the 'missed' counter
+                if occlusion_check_func and occlusion_check_func(track.pose):
+                    new_tracks.append(track)
+                    continue
+
+                track.missed += 1
+                if track.missed < self.MAX_MISSED:
+                    new_tracks.append(track)
+                else:
+                    new_deletes.append(track)
+                    
+        self.delete_tracks = new_deletes
+        self.tracks = new_tracks
+
+        results = []
+        for t in self.tracks:
+            results.append((t.pose, t.dims, CollisionObject.ADD, t.id, t.color))
+        for t in self.delete_tracks:
+            results.append((t.pose, t.dims, CollisionObject.REMOVE, t.id, t.color))
+
+
+        return results
+
+    def _update_for_new_scene(self, detections):
+        new_tracks = []
+        for det_pose, color in detections:
+            new_track = Track(det_pose, DIMENSIONS, self.next_id, color)
+            self.next_id += 1
+            new_tracks.append(new_track)
+            
+        self.tracks = new_tracks
+        return [(t.pose, t.dims, CollisionObject.ADD, t.id, t.color) for t in self.tracks]
+            
+    def update(self, detections, occlusion_check_func=None):
+        if self.tracks is None or len(self.tracks) == 0:
+            return self._update_for_new_scene(detections)
+        else:
+            return self._update_for_existing_scene(detections, occlusion_check_func)
 
 class BlockDetector(Node):
     def __init__(self):
         super().__init__('block_detector')
 
-        # Core utilities
         self.bridge = CvBridge()
         self.camera_model = PinholeCameraModel()
         self.camera_ready = False
-
-        # TF2 setup
+        self.tracker = ObjectTracker()
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
-        # Camera info subscriber
         self.info_sub = self.create_subscription(
-            CameraInfo,
-            '/camera/camera_info',
-            self.info_callback,
-            10
-        )
+            CameraInfo, '/camera/camera_info', self.info_callback, 10)
 
-        # Synchronized RGB + depth subscribers
         self.rgb_sub = message_filters.Subscriber(self, Image, '/camera/image')
         self.depth_sub = message_filters.Subscriber(self, Image, '/camera/depth_image')
 
         self.ts = message_filters.ApproximateTimeSynchronizer(
-            [self.rgb_sub, self.depth_sub],
-            queue_size=10,
-            slop=0.1
-        )
-
+            [self.rgb_sub, self.depth_sub], queue_size=10, slop=0.1)
         self.ts.registerCallback(self.image_callback)
 
         self.marker_pub = self.create_publisher(MarkerArray, '/detected_markers', 10)
-        # store Marker class for local use
-        self._Marker = Marker
-        self._MarkerArray = MarkerArray
-        self.collision_pub = self.create_publisher(CollisionObject, '/collision_object', 10)
+        self.collision_pub = self.create_publisher(CollisionObject, '/vision_detected_objects', 10)
 
     def info_callback(self, info_msg):
         self.camera_model.fromCameraInfo(info_msg)
         self.camera_ready = True
 
-    def find_objects_from_camera(self, cv_rgb, cv_depth):
-        hsv = cv2.cvtColor(cv_rgb, cv2.COLOR_BGR2HSV)
+    def is_occluded(self, object_pose):
+        """Checks if arm links (hand/link7) are overhead, blocking the camera's view of the object."""
+        try:
+            # Check proximity for the hand and the final wrist link[cite: 1, 2]
+            for link in ['panda_hand', 'panda_link7']:
+                if not self.tf_buffer.can_transform('world', link, rclpy.time.Time()):
+                    continue
+                
+                trans = self.tf_buffer.lookup_transform('world', link, rclpy.time.Time()).transform
+                dist_xy = np.sqrt((trans.translation.x - object_pose.position.x)**2 + 
+                                  (trans.translation.y - object_pose.position.y)**2)
+                
+                # If arm is within 15cm of object's XY coordinates, assume occlusion
+                if dist_xy < 0.15:
+                    return True
+            return False
+        except Exception:
+            return False
 
-        # Red wraps HSV, so use two ranges
-        mask1 = cv2.inRange(
-            hsv,
-            np.array([0, 120, 70]),
-            np.array([10, 255, 255])
-        )
+    def get_depth_from_contour(self, contour, depth_img):
+        mask = np.zeros(depth_img.shape, dtype=np.uint8)
+        cv2.drawContours(mask, [contour], -1, 255, -1)
 
-        mask2 = cv2.inRange(
-            hsv,
-            np.array([170, 120, 70]),
-            np.array([180, 255, 255])
-        )
+        depth_vals = depth_img[mask == 255]
+        depth_vals = depth_vals[~np.isnan(depth_vals)]
+        depth_vals = depth_vals[depth_vals < 2.5]
 
-        red_mask = cv2.bitwise_or(mask1, mask2)
+        if len(depth_vals) == 0:
+            return None
+        return float(np.median(depth_vals))
 
-        contours, _ = cv2.findContours(
-            red_mask,
-            cv2.RETR_EXTERNAL,
-            cv2.CHAIN_APPROX_SIMPLE
-        )
+    def find_objects(self, rgb, depth):
+        hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
+        red1 = cv2.inRange(hsv, (0, 120, 70), (10, 255, 255))
+        red2 = cv2.inRange(hsv, (170, 120, 70), (180, 255, 255))
+        red_mask = cv2.bitwise_or(red1, red2)
+        blue_mask = cv2.inRange(hsv, (100, 150, 50), (140, 255, 255))
 
-        objects = []
+        detections = []
+        for color, mask in [("red", red_mask), ("blue", blue_mask)]:
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for c in contours:
+                if 200 < cv2.contourArea(c) < 5000:
+                    (u, v), _, angle = cv2.minAreaRect(c)
+                    z = self.get_depth_from_contour(c, depth)
+                    if z is not None:
+                        detections.append((u, v, z, angle, color))
+        return detections
 
-        for contour in contours:
-            #ignore too small redgs
-            if cv2.contourArea(contour) < 100:
-                continue
+    def pixel_to_world(self, u, v, z, angle, stamp):
+        ray = np.array(self.camera_model.projectPixelTo3dRay((u, v)))
+        ray = ray / ray[2]
 
-            rect = cv2.minAreaRect(contour)
-            (u, v), (w, h), angle = rect
-
-
-            z_camera = cv_depth[int(v), int(u)]
-
-            if np.isnan(z_camera):
-                continue
-
-            objects.append((u, v, w, h, angle, z_camera))
-
-        return objects
-
-    def calculate_transformation_to_object(self, u, v, z_camera, angle, stamp):
-        ray = self.camera_model.projectPixelTo3dRay((u, v))
-
-        target_pose = PoseStamped()
-        target_pose.header.frame_id = "camera_link_optical"
-        target_pose.header.stamp = stamp
-
-        target_pose.pose.position.x = ray[0] * z_camera
-        target_pose.pose.position.y = ray[1] * z_camera
-        target_pose.pose.position.z = z_camera
-
-        # Since the camera is looking straight down, the block's yaw 
-                # in the camera frame corresponds to the image rotation.
-        yaw_camera = np.radians(angle)
-
-        # Camera looking downward adjustment
-        yaw_world_aligned = yaw_camera - np.pi / 2
-
-        q = quaternion_from_euler(0, np.pi, yaw_world_aligned)
-
-        target_pose.pose.orientation.x = q[0]
-        target_pose.pose.orientation.y = q[1]
-        target_pose.pose.orientation.z = q[2]
-        target_pose.pose.orientation.w = q[3]
+        pose_cam = PoseStamped()
+        pose_cam.header.frame_id, pose_cam.header.stamp = "camera_link_optical", stamp
+        pose_cam.pose.position.x, pose_cam.pose.position.y, pose_cam.pose.position.z = ray[0]*z, ray[1]*z, z
+        pose_cam.pose.orientation.w = 1.0
 
         try:
-            transform = self.tf_buffer.lookup_transform(
-                'world',
-                'camera_link_optical',
-                rclpy.time.Time(),
-                timeout=rclpy.duration.Duration(seconds=0.1) # small buffer
-            )
+            transform = self.tf_buffer.lookup_transform('world', 'camera_link_optical', rclpy.time.Time())
+            pose_world = do_transform_pose(pose_cam.pose, transform)
+            pose_world.position.z -= 0.03  # Adjust to block center
+            
+            yaw_camera = np.radians(angle)
 
-            pose_world = do_transform_pose(target_pose.pose, transform)
+        # Camera looking downward adjustment
+            yaw_world_aligned = yaw_camera - np.pi / 2
 
-            self.get_logger().info(
-                f"Block detected: "
-                f"X={pose_world.position.x:.3f}, "
-                f"Y={pose_world.position.y:.3f}, "
-                f"Z={pose_world.position.z:.3f}, "
-                f"Yaw={yaw_world_aligned:.2f} rad"
-            )
+            q = quaternion_from_euler(0, np.pi, yaw_world_aligned)
 
-            #TODO: THIS IS DUMMY FIXED DIMENSIONS. EDIT THIS LATER
-            dimensions = [0.04, 0.04, 0.03]
-            return (pose_world, dimensions)
-
-        except Exception as e:
-            self.get_logger().error(f"Transform failed: {e}")
+            pose_world.orientation.x = q[0]
+            pose_world.orientation.y = q[1]
+            pose_world.orientation.z = q[2]
+            pose_world.orientation.w = q[3]
+            return pose_world
+        except Exception:
             return None
 
     def image_callback(self, rgb_msg, depth_msg):
-        if not self.camera_ready:
-            return
-        if self.camera_model.projectionMatrix() is None:
-            return
+        if not self.camera_ready: return
 
-        cv_rgb = self.bridge.imgmsg_to_cv2(rgb_msg, "bgr8")
-        cv_depth = self.bridge.imgmsg_to_cv2(depth_msg, "32FC1")
+        rgb = self.bridge.imgmsg_to_cv2(rgb_msg, "bgr8")
+        depth = self.bridge.imgmsg_to_cv2(depth_msg, "32FC1")
+        detections = self.find_objects(rgb, depth)
 
-        objects = self.find_objects_from_camera(cv_rgb, cv_depth)
+        objects = []
+        for u, v, z, angle, color in detections:
+            pose = self.pixel_to_world(u, v, z, angle, rgb_msg.header.stamp)
+            if pose: objects.append((pose, color))
 
-        if not objects:
-            return
-        detected_objects = []
-        for obj in objects:
-            u, v, w, h, angle, z = obj
-
-            result = self.calculate_transformation_to_object(
-                u,
-                v,
-                z,
-                angle,
-                rgb_msg.header.stamp
-            )
-            if result:
-                detected_objects.append(result)
-
-        if detected_objects:
-            self.publish_objects(detected_objects)
-
-
+        # Use the tracker with the occlusion check functin
+        tracked = self.tracker.update(objects, self.is_occluded)
+        self.publish_objects(tracked)
 
     def publish_objects(self, objects):
-        """Add the supplied axis-aligned boxes to MoveIt’s planning scene and
-        additionally publish a wireframe MarkerArray for RViz and individual
-        CollisionObject messages for downstream consumers.
-
-        Parameters
-        ----------
-        objects : list of dict
-            Each dict must contain:
-            - 'pose'       : geometry_msgs/Pose (box center, world frame)
-            - 'dimensions' : [dx, dy, dz] edge lengths in metres
-
-        Behavior
-        --------
-        * Publishes a PlanningScene diff on the existing `self.scene_pub`.
-        * Publishes a MarkerArray on `/detected_markers` (LINE_LIST wireframe).
-        The publisher is created lazily and stored as `self.marker_pub`.
-        * Publishes each CollisionObject on `/collision_object` (one message per
-        object) via a lazily-created `self.collision_pub`.
-        """
-
-        # 3) Build and publish MarkerArray (wireframe boxes)
-        marker_array = self._MarkerArray()
-        for idx, (pose, dims) in enumerate(objects):
-            dx, dy, dz = dims
-
-
-            # create marker
-            m = self._Marker()
-            m.header.frame_id = 'world'
-            m.header.stamp = self.get_clock().now().to_msg()
-            m.ns = 'detected_objects'
-            m.id = idx
-            m.type = m.CUBE
-            m.action = m.ADD
+        marker_array = MarkerArray()
+        for pose, dims, operation, track_id, color in objects:
+            m = Marker()
+            m.header.frame_id, m.header.stamp = 'world', self.get_clock().now().to_msg()
+            m.ns, m.id, m.type = 'tracked_objects', track_id, Marker.CUBE
+            m.action = Marker.ADD if operation == CollisionObject.ADD else Marker.DELETE
+            if (m.action == Marker.DELETE):
+                self.get_logger().info(f'We are DELETING an object! The ID is: {m.id}')
             m.pose = pose
-
-            m.scale.x = dx
-            m.scale.y = dy
-            m.scale.z = dz
-            # color (green)
-            m.color.r = 0.0
-            m.color.g = 1.0
-            m.color.b = 0.0
+            m.scale.x, m.scale.y, m.scale.z = DIMENSIONS
             m.color.a = 1.0
-            # points are in absolute world coords, so pose must be identity
+            if color == "red": m.color.r = 1.0
+            else: m.color.b = 1.0
             marker_array.markers.append(m)
 
-
-        # publish markers
-        self.marker_pub.publish(marker_array)
-        self.get_logger().info(f'Published {len(marker_array.markers)} wireframe marker(s)')
-
-        # 4) Publish individual CollisionObject messages for downstream nodes
-        # (some systems prefer /collision_object single messages rather than full PlanningScene diffs)
-        for idx, (pose, dims) in enumerate(objects):
             co_msg = CollisionObject()
-            co_msg.id = f'detected_object_{idx}'
-            co_msg.header.frame_id = 'world'
-            co_msg.header.stamp = self.get_clock().now().to_msg()
-            co_msg.operation = CollisionObject.ADD
-
-            box = SolidPrimitive(type=SolidPrimitive.BOX,
-                                dimensions=dims)
-            co_msg.primitives.append(box)
+            co_msg.id, co_msg.operation = f"{color}_{track_id}", operation
+            co_msg.header.frame_id, co_msg.header.stamp = 'world', self.get_clock().now().to_msg()
+            co_msg.primitives.append(SolidPrimitive(type=SolidPrimitive.BOX, dimensions=DIMENSIONS))
             co_msg.primitive_poses.append(pose)
-
             self.collision_pub.publish(co_msg)
 
-        self.get_logger().info(f'Published {len(objects)} CollisionObject message(s) on /collision_object')
+        self.marker_pub.publish(marker_array)
+
 def main():
     rclpy.init()
     node = BlockDetector()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()

@@ -14,7 +14,7 @@
   <xacro:macro name="ros2_control_panda_arm" params="
    name:=panda_arm_system
    prefix:=panda_
-   plugin:=fake
+   plugin:=gz
    command_interface:=effort
    initial_positions_file:=${default_initial_positions_file}
   ">
