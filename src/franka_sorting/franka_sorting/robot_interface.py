@@ -229,11 +229,33 @@ class RobotInterface(Node):
 
     def attach_object(self, object_id: str):
         """Attach object to the gripper in the MoveIt planning scene and Gazebo."""
+        obj = self._detected_objects.get(object_id)
+        self.log(
+            f"In attach_object in robot interface, attach {object_id}. "
+            f"Exists in detected_objects? {'YES' if obj is not None else 'NO'}. "
+            f"Pose: {obj.pose if obj is not None else 'N/A'}"
+        )
+        if obj is None:
+            self.log(f"[ATTACH ERROR] {object_id} not in detected_objects")
+            return
+
+        co = CollisionObject()
+        co.id = object_id
+        co.header.frame_id = 'world'
+        co.operation = CollisionObject.ADD
+
+        box = SolidPrimitive()
+        box.type = SolidPrimitive.BOX
+        box.dimensions = obj.dims
+
+        co.primitives.append(box)
+        co.primitive_poses.append(obj.pose)
         aco = AttachedCollisionObject()
+        aco.object = co
         aco.link_name = 'panda_hand'
-        aco.object.id = object_id
-        aco.object.header.frame_id = 'world'
-        aco.object.operation = CollisionObject.ADD
+        #aco.object.id = object_id
+        #aco.object.header.frame_id = 'world'
+        #aco.object.operation = CollisionObject.ADD
         aco.touch_links = self.GRIPPER_LINKS
         scene = PlanningScene(is_diff=True)
         scene.robot_state.attached_collision_objects.append(aco)
