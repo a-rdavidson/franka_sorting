@@ -41,19 +41,19 @@ class DetectedObject:
     dims: list  # [dx, dy, dz] in metres
 
 RED_CONTAINER = {
-    'center_xy':  (0.45, 0.5),   # (x, y) world frame
+    'center_xy':  (0.0, 0.5),   # (x, y) world frame
     'width':   0.3,           # inner x dimension
     'depth':   0.3,           # inner y dimension
     'height':  0.02,           # wall height above table surface
-    'table_z': 0.4,           # table surface z
+    'table_z': 0.0,           # table surface z
 }
 
 BLUE_CONTAINER = {
-    'center_xy':  (0.45, -0.5),   # (x, y) world frame
+    'center_xy':  (0.0, -0.5),   # (x, y) world frame
     'width':   0.3,           # inner x dimension
     'depth':   0.3,           # inner y dimension
     'height':  0.02,           # wall height above table surface
-    'table_z': 0.4,           # table surface z
+    'table_z': 0.0,           # table surface z
 }
 
 # ─── RobotInterface ───────────────────────────────────────────────────────────
@@ -301,8 +301,8 @@ class RobotInterface(Node):
         table.id = 'table'
         table.operation = CollisionObject.ADD
         
-        table_dims = [1.0, 1.5, 0.35]
-        table_pos = [0.70, 0.0, 0.2] 
+        table_dims = [1.0, 1.5, 0.35] # MUST MATCH SDF
+        table_pos = [0.70, 0.0, 0.2]  # MUST MATCH SDF
         
         table.primitives.append(SolidPrimitive(type=SolidPrimitive.BOX, dimensions=table_dims))
         table.primitive_poses.append(
@@ -312,8 +312,8 @@ class RobotInterface(Node):
 
         # 2. Containers: Moved forward by 0.3m
         container_specs = [
-            {'id': 'red_container', 'pos': [0.55, 0.5, 0.4]},
-            {'id': 'blue_container', 'pos': [0.55, -0.5, 0.4]}
+            {'id': 'red_container', 'pos': [0.0, 0.5, 0.01]}, # MUST MATCH SDF
+            {'id': 'blue_container', 'pos': [0.0, -0.5, 0.01]} # MUST MATCH SDF
         ]
 
         wall_thickness = 0.01
@@ -395,6 +395,7 @@ class RobotInterface(Node):
         scene = PlanningScene(is_diff=True)
         scene.robot_state.is_diff = True
         acm = scene.allowed_collision_matrix
+
         acm.default_entry_names = [object_id]
         acm.default_entry_values = [True]
         return scene

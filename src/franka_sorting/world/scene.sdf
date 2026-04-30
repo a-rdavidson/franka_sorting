@@ -39,7 +39,7 @@
 
     <model name="red_container">
       <static>true</static>
-      <pose>0.45 0.5 0.4 0 0 0</pose>
+      <pose>0.0 0.5 0.01 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
@@ -56,7 +56,7 @@
 
     <model name="blue_container">
       <static>true</static>
-      <pose>0.45 -0.5 0.40 0 0 0</pose>
+      <pose>0.0 -0.5 0.01 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
@@ -81,7 +81,7 @@
           </inertia>
         </inertial>
         <collision name="collision">
-          <geometry><box><size>0.04 0.04 0.06</size></box></geometry>
+          <geometry><box><size>0.06 0.06 0.08</size></box></geometry>
           <surface>
             <friction>
               <ode><mu>1.0</mu><mu2>1.0</mu2></ode>
@@ -89,7 +89,7 @@
           </surface>
         </collision>
         <visual name="visual">
-          <geometry><box><size>0.04 0.04 0.06</size></box></geometry>
+          <geometry><box><size>0.06 0.06 0.08 </size></box></geometry>
           <material>
             <ambient>1 0 0 1</ambient>
             <diffuse>1 0 0 1</diffuse>
@@ -108,7 +108,7 @@
           </inertia>
         </inertial>
         <collision name="collision">
-          <geometry><box><size>0.04 0.04 0.06</size></box></geometry>
+          <geometry><box><size>0.06 0.06 0.08</size></box></geometry>
           <surface>
             <friction>
               <ode><mu>1.0</mu><mu2>1.0</mu2></ode>
@@ -116,7 +116,7 @@
           </surface>
         </collision>
         <visual name="visual">
-          <geometry><box><size>0.04 0.04 0.06</size></box></geometry>
+          <geometry><box><size>0.06 0.06 0.08</size></box></geometry>
           <material>
             <ambient>0 0 1 1</ambient>
             <diffuse>0 0 1 1</diffuse>

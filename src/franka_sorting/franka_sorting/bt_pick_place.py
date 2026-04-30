@@ -222,13 +222,14 @@ class MoveToGrasp(ActionNode):
         super().__init__('MoveToGrasp', robot)
         self.bb = py_trees.blackboard.Client(name='MoveToGrasp')
         self.bb.register_key('/grasp_proposals',  access=py_trees.common.Access.READ)
-        #self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ) probably dont need this
+        self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
 
     def _send_goal(self):
         grasp = self.bb.grasp_proposals[0]
         self.robot.publish_pose_axes(grasp, 'grasp')
         return self.robot.send_pose_goal(
             grasp,
+            acm_object_id=self.bb.target_object_id,
             position_tolerance=0.005,
             orientation_tolerance=0.05,
         )
@@ -304,6 +305,7 @@ class Retreat(ActionNode):
         super().__init__('Retreat', robot)
         self.bb = py_trees.blackboard.Client(name='Retreat')
         self.bb.register_key('/grasp_proposals', access=py_trees.common.Access.READ)
+        self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
 
     def initialise(self):
         co = CollisionObject()
@@ -325,6 +327,7 @@ class Retreat(ActionNode):
         retreat.position.z += 0.20
         return self.robot.send_pose_goal(
             retreat,
+            acm_object_id=self.bb.target_object_id,
             position_tolerance=0.01,
             orientation_tolerance=0.05,
         )
