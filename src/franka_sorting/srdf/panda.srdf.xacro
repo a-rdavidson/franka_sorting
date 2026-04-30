@@ -38,14 +38,21 @@
 
   <end_effector group="gripper" name="gripper" parent_group="arm" parent_link="${prefix_arm}hand_tcp"/>
 
+  <disable_collisions link1="${prefix_gripper}leftfinger" link2="${prefix_gripper}rightfinger" reason="Default"/>
+
   <disable_collisions link1="${prefix_gripper}hand" link2="${prefix_arm}link3" reason="Never"/>
   <disable_collisions link1="${prefix_gripper}hand" link2="${prefix_arm}link4" reason="Never"/>
   <disable_collisions link1="${prefix_gripper}hand" link2="${prefix_arm}link6" reason="Never"/>
   <disable_collisions link1="${prefix_gripper}hand" link2="${prefix_arm}link7" reason="Adjacent"/>
+
+  <disable_collisions link1="${prefix_gripper}hand" link2="${prefix_gripper}leftfinger" reason="Adjacent"/>
+  <disable_collisions link1="${prefix_gripper}hand" link2="${prefix_gripper}rightfinger" reason="Adjacent"/>
+
   <disable_collisions link1="${prefix_gripper}leftfinger" link2="${prefix_arm}link3" reason="Never"/>
   <disable_collisions link1="${prefix_gripper}leftfinger" link2="${prefix_arm}link4" reason="Never"/>
   <disable_collisions link1="${prefix_gripper}leftfinger" link2="${prefix_arm}link6" reason="Never"/>
   <disable_collisions link1="${prefix_gripper}leftfinger" link2="${prefix_arm}link7" reason="Never"/>
+
   <disable_collisions link1="${prefix_arm}link3" link2="${prefix_gripper}rightfinger" reason="Never"/>
   <disable_collisions link1="${prefix_arm}link4" link2="${prefix_gripper}rightfinger" reason="Never"/>
   <disable_collisions link1="${prefix_arm}link6" link2="${prefix_gripper}rightfinger" reason="Never"/>

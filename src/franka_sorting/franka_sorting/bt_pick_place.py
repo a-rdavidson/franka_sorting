@@ -290,6 +290,7 @@ class AttachObject(py_trees.behaviour.Behaviour):
         self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
 
     def update(self):
+        self.robot.log(f"[HELLO] {self.bb.target_object_id}") 
         self.robot.attach_object(self.bb.target_object_id)
         return py_trees.common.Status.SUCCESS
 

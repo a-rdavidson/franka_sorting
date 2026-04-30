@@ -108,7 +108,7 @@ class RobotInterface(Node):
         self.create_subscription(JointState, '/joint_states', self._on_joint_states, 10)
         self.create_subscription(
             CollisionObject,
-            '/collision_object',
+            '/vision_detected_objects',
             self._on_collision_object,
             10
         )

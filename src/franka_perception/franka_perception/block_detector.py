@@ -48,7 +48,7 @@ class BlockDetector(Node):
         self.ts.registerCallback(self.image_callback)
 
         self.marker_pub = self.create_publisher(MarkerArray, '/detected_markers', 10)
-        self.collision_pub = self.create_publisher(CollisionObject, '/collision_object', 10)
+        self.collision_pub = self.create_publisher(CollisionObject, '/vision_detected_objects', 10)
 
     def info_callback(self, info_msg):
         self.camera_model.fromCameraInfo(info_msg)
