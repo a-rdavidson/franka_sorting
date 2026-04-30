@@ -107,8 +107,8 @@ class ReadScene(py_trees.behaviour.Behaviour):
             co.primitives.append(SolidPrimitive(type=SolidPrimitive.BOX, dimensions=obj.dims))
             co.primitive_poses.append(obj.pose)
             scene.world.collision_objects.append(co)
-            self.robot.log(f'[INFO] ReadScene: {obj_id} at '
-                            f'({obj.pose.position.x:.3f}, {obj.pose.position.y:.3f}, {obj.pose.position.z:.3f})')
+            #self.robot.log(f'[INFO] ReadScene: {obj_id} at '
+            #                f'({obj.pose.position.x:.3f}, {obj.pose.position.y:.3f}, {obj.pose.position.z:.3f})')
 
         self.robot._scene_pub.publish(scene)
         self.bb.detected_objects = dict(self.robot._detected_objects)
@@ -591,16 +591,24 @@ class ProposeGrasps(py_trees.behaviour.Behaviour):
 
         valid_poses = []
         for cand in candidates: 
-            z_col = cand.R[2, 0]
-            grasp_z = cand.pos[2]
+
+            approach_vec = cand.R[:, 0] # Approach as first col 
+            z_alignment = approach_vec[2] # z_column
+
+            self.robot.log(f'[DEBUG] Grasp Z: {cand.pos[2]:.3f}, Alignment: {z_alignment:.3f}')
             
-            self.robot.log(f'[DEBUG] Grasp proposed at Z: {grasp_z:.3f}, Approach Z: {z_col:.3f}')
-            # Approach should be mostly downward
-            if z_col > -0.3: 
+            # -1 is perfectly vertical, -0.85 should allow 30 degree tilt
+            if z_alignment > -0.85: 
+                continue
+
+            table_surface_z = 0.40
+            # Don't allow grasps too close to the surface of table
+            if cand.pos[2] < (table_surface_z + 0.01):
                 continue
             
-            # Don't want arm to collide with table
-            if grasp_z < 0.02: 
+            dist_sq = cand.pos[0]**2 + cand.pos[1]**2
+            # Avoid grasps too close or too far from robot base
+            if dist_sq < 0.3**2 or dist_sq > 0.85**2:
                 continue
 
             valid_poses.append(gpd_to_panda_pose(cand.pos, cand.R))

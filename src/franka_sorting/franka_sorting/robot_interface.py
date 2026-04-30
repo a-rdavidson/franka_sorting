@@ -41,7 +41,7 @@ class DetectedObject:
     dims: list  # [dx, dy, dz] in metres
 
 RED_CONTAINER = {
-    'center_xy':  (0.45, 0.5),   # (x, y) world frame
+    'center_xy':  (0.40, 0.45),   # (x, y) world frame
     'width':   0.3,           # inner x dimension
     'depth':   0.3,           # inner y dimension
     'height':  0.02,           # wall height above table surface
@@ -49,7 +49,7 @@ RED_CONTAINER = {
 }
 
 BLUE_CONTAINER = {
-    'center_xy':  (0.45, -0.5),   # (x, y) world frame
+    'center_xy':  (0.40, -0.45),   # (x, y) world frame
     'width':   0.3,           # inner x dimension
     'depth':   0.3,           # inner y dimension
     'height':  0.02,           # wall height above table surface
@@ -113,7 +113,7 @@ class RobotInterface(Node):
             10
         )
         self._marker_id = 0 
-        self._marker_pub = self.create_publisher(MarkerArray, '/grasp_marekrs', 10)
+        self._marker_pub = self.create_publisher(MarkerArray, '/grasp_markers', 10)
 
         self.get_logger().info('Waiting for /move_action ...')
         self._move_client.wait_for_server()
@@ -279,7 +279,7 @@ class RobotInterface(Node):
 
         if not msg.primitives:
             return
-        self.get_logger().info(f'ID: {msg.id}')
+        #self.get_logger().info(f'ID: {msg.id}')
         for i, primitive in enumerate(msg.primitives):
             dims = list(primitive.dimensions)
 
@@ -312,8 +312,8 @@ class RobotInterface(Node):
 
         # 2. Containers: Moved forward by 0.3m
         container_specs = [
-            {'id': 'red_container', 'pos': [0.55, 0.5, 0.4]},
-            {'id': 'blue_container', 'pos': [0.55, -0.5, 0.4]}
+            {'id': 'red_container', 'pos': [0.4, 0.45, 0.4]},
+            {'id': 'blue_container', 'pos': [0.4, -0.45, 0.4]}
         ]
 
         wall_thickness = 0.01
