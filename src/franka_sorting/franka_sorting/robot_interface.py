@@ -113,7 +113,7 @@ class RobotInterface(Node):
             10
         )
         self._marker_id = 0 
-        self._marker_pub = self.create_publisher(MarkerArray, '/grasp_marekrs', 10)
+        self._marker_pub = self.create_publisher(MarkerArray, '/grasp_markers', 10)
 
         self.get_logger().info('Waiting for /move_action ...')
         self._move_client.wait_for_server()
