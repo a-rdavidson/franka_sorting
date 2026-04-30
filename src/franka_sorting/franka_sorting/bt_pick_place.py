@@ -323,6 +323,10 @@ class Retreat(ActionNode):
         super().terminate(new_status)
 
     def _send_goal(self):
+        self.get_logger().info(
+            f"In Retreat Node, these are all the attatched_collsion_objects: "
+            f"{[o.object.id for o in self.robot.scene.robot_state.attached_collision_objects]}"
+        )
         retreat = copy.deepcopy(self.bb.grasp_proposals[0])
         retreat.position.z += 0.20
         return self.robot.send_pose_goal(
