@@ -33,7 +33,6 @@ class ObjectTracker:
         self.tracks = []
         self.delete_tracks = []
         self.next_id = 0
-
         self.MAX_DIST = 0.15   # 15 cm matching threshold
         self.MAX_MISSED = 25    # Frames before deleting track; slightly increased for stability
 

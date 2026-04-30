@@ -28,21 +28,7 @@ joint_trajectory_controller:
       - velocity
     constraints:
       goal_time: 5.0
-      stopped_velocity_tolerance: 0.05
-      panda_joint1:
-        goal: 0.05
-      panda_joint2:
-        goal: 0.05
-      panda_joint3:
-        goal: 0.05
-      panda_joint4:
-        goal: 0.05
-      panda_joint5:
-        goal: 0.05
-      panda_joint6:
-        goal: 0.05
-      panda_joint7:
-        goal: 0.05
+      stopped_velocity_tolerance: 0.5
 
 gripper_trajectory_controller:
   ros__parameters:
@@ -50,7 +36,17 @@ gripper_trajectory_controller:
       - panda_finger_joint1
       - panda_finger_joint2
     command_interfaces:
-      - position
+      - effort 
     state_interfaces:
       - position
       - velocity
+    constraints:
+      goal_time: 2.0 
+      stopped_velocity_tolerance: 0.05 
+      panda_finger_joint1: 
+        goal: 0.02 
+      panda_finger_joint2: 
+        goal: 0.02
+    gains:
+      panda_finger_joint1: {p: 500.0, d: 0.01, i: 50.0, i_clamp: 100.0}
+      panda_finger_joint2: {p: 500.0, d: 0.01, i: 50.0, i_clamp: 100.0}
