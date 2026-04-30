@@ -10,7 +10,7 @@ import numpy as np
 import message_filters
 
 from image_geometry import PinholeCameraModel
-
+from tf_transformations import quaternion_from_euler
 import tf2_ros
 from tf2_geometry_msgs import do_transform_pose
 from geometry_msgs.msg import Pose, Quaternion
@@ -179,13 +179,13 @@ class BlockDetector(Node):
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for c in contours:
                 if 200 < cv2.contourArea(c) < 5000:
-                    (u, v), _, _ = cv2.minAreaRect(c)
+                    (u, v), _, angle = cv2.minAreaRect(c)
                     z = self.get_depth_from_contour(c, depth)
                     if z is not None:
-                        detections.append((u, v, z, color))
+                        detections.append((u, v, z, angle, color))
         return detections
 
-    def pixel_to_world(self, u, v, z, stamp):
+    def pixel_to_world(self, u, v, z, angle, stamp):
         ray = np.array(self.camera_model.projectPixelTo3dRay((u, v)))
         ray = ray / ray[2]
 
@@ -198,6 +198,18 @@ class BlockDetector(Node):
             transform = self.tf_buffer.lookup_transform('world', 'camera_link_optical', rclpy.time.Time())
             pose_world = do_transform_pose(pose_cam.pose, transform)
             pose_world.position.z -= 0.03  # Adjust to block center
+            
+            yaw_camera = np.radians(angle)
+
+        # Camera looking downward adjustment
+            yaw_world_aligned = yaw_camera - np.pi / 2
+
+            q = quaternion_from_euler(0, np.pi, yaw_world_aligned)
+
+            pose_world.orientation.x = q[0]
+            pose_world.orientation.y = q[1]
+            pose_world.orientation.z = q[2]
+            pose_world.orientation.w = q[3]
             return pose_world
         except Exception:
             return None
@@ -210,8 +222,8 @@ class BlockDetector(Node):
         detections = self.find_objects(rgb, depth)
 
         objects = []
-        for u, v, z, color in detections:
-            pose = self.pixel_to_world(u, v, z, rgb_msg.header.stamp)
+        for u, v, z, angle, color in detections:
+            pose = self.pixel_to_world(u, v, z, angle, rgb_msg.header.stamp)
             if pose: objects.append((pose, color))
 
         # Use the tracker with the occlusion check functin
