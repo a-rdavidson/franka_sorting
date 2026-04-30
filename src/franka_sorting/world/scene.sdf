@@ -41,7 +41,7 @@
     <!-- Containers -->
     <model name="red_container">
       <static>true</static>
-      <pose>0.40 0.45 0.4 0 0 0</pose>
+      <pose>0.40 0.45 0.375 0 0 0</pose>
       <link name="link">
         <visual name="wall_front_v"><pose>0.15 0 0.02 0 0 0</pose><geometry><box><size>0.01 0.3 0.04</size></box></geometry><material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.3 0.3 0.3 1</diffuse></material></visual>
         <collision name="wall_front_c"><pose>0.15 0 0.02 0 0 0</pose><geometry><box><size>0.01 0.3 0.04</size></box></geometry></collision>
@@ -56,7 +56,7 @@
 
     <model name="blue_container">
       <static>true</static>
-      <pose>0.40 -0.45 0.40 0 0 0</pose>
+      <pose>0.40 -0.45 0.375 0 0 0</pose>
       <link name="link">
         <visual name="wall_front_v"><pose>0.15 0 0.02 0 0 0</pose><geometry><box><size>0.01 0.3 0.04</size></box></geometry><material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.3 0.3 0.3 1</diffuse></material></visual>
         <collision name="wall_front_c"><pose>0.15 0 0.02 0 0 0</pose><geometry><box><size>0.01 0.3 0.04</size></box></geometry></collision>

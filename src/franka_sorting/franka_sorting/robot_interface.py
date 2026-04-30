@@ -45,7 +45,7 @@ RED_CONTAINER = {
     'width':   0.3,           # inner x dimension
     'depth':   0.3,           # inner y dimension
     'height':  0.02,           # wall height above table surface
-    'table_z': 0.4,           # table surface z
+    'table_z': 0.395,           # table surface z
 }
 
 BLUE_CONTAINER = {
@@ -53,7 +53,7 @@ BLUE_CONTAINER = {
     'width':   0.3,           # inner x dimension
     'depth':   0.3,           # inner y dimension
     'height':  0.02,           # wall height above table surface
-    'table_z': 0.4,           # table surface z
+    'table_z': 0.395,           # table surface z
 }
 
 # ─── RobotInterface ───────────────────────────────────────────────────────────
@@ -312,12 +312,12 @@ class RobotInterface(Node):
 
         # 2. Containers: Moved forward by 0.3m
         container_specs = [
-            {'id': 'red_container', 'pos': [0.4, 0.45, 0.4]},
-            {'id': 'blue_container', 'pos': [0.4, -0.45, 0.4]}
+            {'id': 'red_container', 'pos': [0.4, 0.45, 0.395]},
+            {'id': 'blue_container', 'pos': [0.4, -0.45, 0.395]}
         ]
 
         wall_thickness = 0.01
-        c_width, c_depth, c_height = 0.3, 0.3, 0.02
+        c_width, c_depth, c_height = 0.3, 0.3, 0.04
 
         for spec in container_specs:
             co = CollisionObject()
