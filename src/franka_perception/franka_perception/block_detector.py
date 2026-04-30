@@ -90,6 +90,7 @@ class ObjectTracker:
         for t in self.delete_tracks:
             results.append((t.pose, t.dims, CollisionObject.REMOVE, t.id, t.color))
 
+
         return results
 
     def _update_for_new_scene(self, detections):
@@ -225,6 +226,8 @@ class BlockDetector(Node):
             m.header.frame_id, m.header.stamp = 'world', self.get_clock().now().to_msg()
             m.ns, m.id, m.type = 'tracked_objects', track_id, Marker.CUBE
             m.action = Marker.ADD if operation == CollisionObject.ADD else Marker.DELETE
+            if (m.action == Marker.DELETE):
+                self.get_logger().info(f'We are DELETING an object! The ID is: {m.id}')
             m.pose = pose
             m.scale.x, m.scale.y, m.scale.z = DIMENSIONS
             m.color.a = 1.0
