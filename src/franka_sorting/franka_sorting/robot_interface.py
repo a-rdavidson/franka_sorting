@@ -244,12 +244,12 @@ class RobotInterface(Node):
         co.header.frame_id = 'world'
         co.operation = CollisionObject.ADD
 
-        box = SolidPrimitive()
-        box.type = SolidPrimitive.BOX
-        box.dimensions = obj.dims
+        #box = SolidPrimitive()
+        #box.type = SolidPrimitive.BOX
+        #box.dimensions = obj.dims
 
-        co.primitives.append(box)
-        co.primitive_poses.append(obj.pose)
+        #co.primitives.append(box)
+        #co.primitive_poses.append(obj.pose)
         aco = AttachedCollisionObject()
         aco.object = co
         aco.link_name = 'panda_hand'
