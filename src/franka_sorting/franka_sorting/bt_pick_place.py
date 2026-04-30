@@ -103,9 +103,10 @@ class ReadScene(py_trees.behaviour.Behaviour):
             co.header.frame_id = 'world'
             co.header.stamp = self.robot.get_clock().now().to_msg()
             co.id = obj_id
+            co.pose = obj.pose
             co.operation = CollisionObject.ADD
             co.primitives.append(SolidPrimitive(type=SolidPrimitive.BOX, dimensions=obj.dims))
-            co.primitive_poses.append(obj.pose)
+            co.primitive_poses.append(Pose()) # identity, since this is in relative to the object
             scene.world.collision_objects.append(co)
             self.robot.log(f'[INFO] ReadScene: {obj_id} at '
                             f'({obj.pose.position.x:.3f}, {obj.pose.position.y:.3f}, {obj.pose.position.z:.3f})')
