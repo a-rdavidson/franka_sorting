@@ -5,7 +5,8 @@
 git clone git@github.com:a-rdavidson/franka_sorting.git
 ```
 
-2. Build the Docker container
+2. Build the Docker container. \
+
 We recommend using the provided Dockerfile to setup all dependencies and prequisites, though you can run the software outside of a container if all dependencies are installed and setup properly
 ```bash
 docker build -t franka_sim .
