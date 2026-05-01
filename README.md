@@ -1,3 +1,6 @@
+# System Diagram
+
+<img width="8192" height="1518" alt="Robot State and Trajectory-2026-05-01-163536" src="https://github.com/user-attachments/assets/203e86c8-7b49-42f7-9246-73fc65ebe0c0" />
 
 # Installation & Setup
 1. Clone the repository
@@ -34,4 +37,5 @@ ros2 launch franka_sorting franka_sim.launch.py
 source install/setup.bash
 ros2 run franka_sorting bt_pick_place.py
 ```
+
 
