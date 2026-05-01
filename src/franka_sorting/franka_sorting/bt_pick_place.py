@@ -7,10 +7,14 @@ Run after launch_ctrl:
 """
 
 import copy
+import time
 import rclpy
 import py_trees
 import py_trees_ros
 import numpy as np  # noqa: F401
+
+from dataclasses import dataclass, field
+from typing import Optional
 
 from geometry_msgs.msg import Pose  # noqa: F401
 from moveit_msgs.msg import CollisionObject, PlanningScene
@@ -19,6 +23,157 @@ from shape_msgs.msg import SolidPrimitive
 from robot_interface import RobotInterface, RED_CONTAINER, BLUE_CONTAINER, DetectedObject
 from action_node import ActionNode, GripperNode
 from gpd import sample_cuboid_surface, detect_grasps, gpd_to_panda_pose, GraspCandidate  # noqa: F401
+
+
+# ─── Stats tracker ────────────────────────────────────────────────────────────
+
+@dataclass
+class CycleRecord:
+    obj_id:        str
+    start_time:    float
+    end_time:      float   = 0.0
+    success:       bool    = False
+    failure_phase: str     = ''   # which node name caused the failure
+
+
+class StatsTracker:
+    """
+    Collects per-cycle and aggregate statistics for the sorting run.
+
+    Lifecycle
+    ---------
+    SelectObject SUCCESS          → cycle_start(obj_id)
+    CheckObjectIsAttached FAILURE → grasp_miss()
+    ProposeGrasps FAILURE         → grasp_plan_fail()
+    Any ActionNode subclass FAIL  → planning_fail(node_name)
+    MoveToHome retry              → home_retry()
+    CheckAllObjectsInContainer    → cycle_end(success, failure_phase)
+    main() finally                → print_summary()
+    """
+
+    def __init__(self):
+        self.session_start: float               = time.monotonic()
+        self.cycles:        list[CycleRecord]   = []
+        self._cur:          Optional[CycleRecord] = None
+
+        # Aggregate counters (some failures abort before cycle_end is reached)
+        self.grasp_misses:       int             = 0   # gripper closed on air
+        self.grasp_plan_fails:   int             = 0   # ProposeGrasps exhausted
+        self.planning_fails:     dict[str, int]  = {}  # {node_name: count}
+        self.home_retries:       int             = 0
+
+    # ── called by BT nodes ────────────────────────────────────────────────
+
+    def cycle_start(self, obj_id: str):
+        self._cur = CycleRecord(obj_id=obj_id, start_time=time.monotonic())
+
+    def cycle_end(self, success: bool, failure_phase: str = ''):
+        if self._cur is None:
+            return
+        self._cur.end_time     = time.monotonic()
+        self._cur.success      = success
+        self._cur.failure_phase = failure_phase
+        self.cycles.append(self._cur)
+        self._cur = None
+
+    def grasp_miss(self):
+        self.grasp_misses += 1
+
+    def grasp_plan_fail(self):
+        self.grasp_plan_fails += 1
+
+    def planning_fail(self, node_name: str):
+        self.planning_fails[node_name] = self.planning_fails.get(node_name, 0) + 1
+
+    def home_retry(self):
+        self.home_retries += 1
+
+    # ── summary ───────────────────────────────────────────────────────────
+
+    def print_summary(self):
+        total_s   = time.monotonic() - self.session_start
+        n_total   = len(self.cycles)
+        n_success = sum(1 for c in self.cycles if c.success)
+        n_fail    = n_total - n_success
+
+        durations = [c.end_time - c.start_time for c in self.cycles if c.end_time > 0]
+        avg_cycle = (sum(durations) / len(durations)) if durations else 0.0
+        min_cycle = min(durations) if durations else 0.0
+        max_cycle = max(durations) if durations else 0.0
+        std_cycle = float(np.std(durations)) if len(durations) > 1 else 0.0
+
+        throughput = (n_success / (total_s / 60.0)) if total_s > 0 else 0.0
+        success_rate = (n_success / n_total * 100.0) if n_total > 0 else 0.0
+
+        W = 54  # inner width of the box
+
+        def row(label: str, value: str) -> str:
+            gap = W - len(label) - len(value)
+            return f'│  {label}{" " * gap}{value}  │'
+
+        def div() -> str:
+            return f'├{"─" * (W + 4)}┤'
+
+        def section(title: str) -> str:
+            pad = W + 4 - len(title) - 2
+            left  = pad // 2
+            right = pad - left
+            return f'│{" " * left}{title}{" " * right}│'
+
+        lines = []
+        lines.append(f'┌{"─" * (W + 4)}┐')
+        lines.append(section('SORTING SESSION STATISTICS'))
+        lines.append(div())
+
+        # ── Session
+        lines.append(section('Session'))
+        lines.append(row('Total runtime',
+                          f'{int(total_s // 60)}m {total_s % 60:.1f}s'))
+        lines.append(row('Objects attempted', str(n_total)))
+        lines.append(row('Objects sorted',    str(n_success)))
+        lines.append(row('Sort failures',     str(n_fail)))
+        lines.append(row('Success rate',      f'{success_rate:.1f} %'))
+        lines.append(row('Throughput',        f'{throughput:.2f} objects / min'))
+
+        # ── Cycle times
+        lines.append(div())
+        lines.append(section('Cycle time  (SelectObject → container confirmed)'))
+        if durations:
+            lines.append(row('Mean',   f'{avg_cycle:.1f} s'))
+            lines.append(row('Min',    f'{min_cycle:.1f} s'))
+            lines.append(row('Max',    f'{max_cycle:.1f} s'))
+            lines.append(row('Std dev', f'{std_cycle:.1f} s'))
+        else:
+            lines.append(row('No completed cycles', '—'))
+
+        # ── Failures by phase
+        lines.append(div())
+        lines.append(section('Failure breakdown'))
+        lines.append(row('Grasp misses  (gripper closed on air)', str(self.grasp_misses)))
+        lines.append(row('Grasp plan failures  (GPD exhausted)',  str(self.grasp_plan_fails)))
+        lines.append(row('Home retries',                          str(self.home_retries)))
+        if self.planning_fails:
+            for node, count in sorted(self.planning_fails.items()):
+                lines.append(row(f'  Planning fail — {node}', str(count)))
+        else:
+            lines.append(row('Planning failures', '0'))
+
+        # ── Per-object breakdown
+        if self.cycles:
+            lines.append(div())
+            lines.append(section('Per-object log'))
+            for i, c in enumerate(self.cycles, 1):
+                dur    = c.end_time - c.start_time if c.end_time else 0.0
+                status = 'OK  ' if c.success else 'FAIL'
+                phase  = f'  ← {c.failure_phase}' if not c.success and c.failure_phase else ''
+                entry  = f'{i:>2}. [{status}] {c.obj_id:<14} {dur:>5.1f}s{phase}'
+                # Truncate to fit box width
+                entry  = entry[: W]
+                gap    = W - len(entry)
+                lines.append(f'│  {entry}{" " * gap}  │')
+
+        lines.append(f'└{"─" * (W + 4)}┘')
+        print('\n' + '\n'.join(lines) + '\n')
 
 
 # ─── Provided nodes ───────────────────────────────────────────────────────────
@@ -107,8 +262,6 @@ class ReadScene(py_trees.behaviour.Behaviour):
             co.primitives.append(SolidPrimitive(type=SolidPrimitive.BOX, dimensions=obj.dims))
             co.primitive_poses.append(obj.pose)
             scene.world.collision_objects.append(co)
-            #self.robot.log(f'[INFO] ReadScene: {obj_id} at '
-            #                f'({obj.pose.position.x:.3f}, {obj.pose.position.y:.3f}, {obj.pose.position.z:.3f})')
 
         self.robot._scene_pub.publish(scene)
         self.bb.detected_objects = dict(self.robot._detected_objects)
@@ -165,9 +318,12 @@ class MoveToHome(ActionNode):
         if status == py_trees.common.Status.FAILURE and self._retries < self._MAX_RETRIES:
             self._retries += 1
             self.robot.log(f'[WARN] MoveToHome: retrying ({self._retries}/{self._MAX_RETRIES})')
+            self.robot.stats.home_retry()                    
             self._reset_state()
             super().initialise()
             return py_trees.common.Status.RUNNING
+        if status == py_trees.common.Status.FAILURE:
+            self.robot.stats.planning_fail('MoveToHome')    
         return status
 
     def _send_goal(self):
@@ -205,6 +361,12 @@ class MoveToPreGrasp(ActionNode):
         self.bb = py_trees.blackboard.Client(name='MoveToPreGrasp')
         self.bb.register_key('/grasp_proposals', access=py_trees.common.Access.READ)
 
+    def update(self):
+        status = super().update()
+        if status == py_trees.common.Status.FAILURE:
+            self.robot.stats.planning_fail('MoveToPreGrasp')  
+        return status
+
     def _send_goal(self):
         pre = copy.deepcopy(self.bb.grasp_proposals[0])
         pre.position.z += 0.08
@@ -222,7 +384,12 @@ class MoveToGrasp(ActionNode):
         super().__init__('MoveToGrasp', robot)
         self.bb = py_trees.blackboard.Client(name='MoveToGrasp')
         self.bb.register_key('/grasp_proposals',  access=py_trees.common.Access.READ)
-        #self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ) probably dont need this
+
+    def update(self):
+        status = super().update()
+        if status == py_trees.common.Status.FAILURE:
+            self.robot.stats.planning_fail('MoveToGrasp')    
+        return status
 
     def _send_goal(self):
         grasp = self.bb.grasp_proposals[0]
@@ -256,6 +423,7 @@ class CheckObjectIsAttached(py_trees.behaviour.Behaviour):
             self.robot.log(f'[OK]   CheckObjectIsAttached: gap={gap:.4f}')
             return py_trees.common.Status.SUCCESS
         self.robot.log(f'[FAIL] CheckObjectIsAttached: gap={gap:.4f} (fully closed)')
+        self.robot.stats.grasp_miss()                        
         return py_trees.common.Status.FAILURE
 
 
@@ -290,7 +458,7 @@ class AttachObject(py_trees.behaviour.Behaviour):
         self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
 
     def update(self):
-        self.robot.log(f"[HELLO] {self.bb.target_object_id}") 
+        self.robot.log(f"[INFO] AttachObject: {self.bb.target_object_id}") 
         self.robot.attach_object(self.bb.target_object_id)
         return py_trees.common.Status.SUCCESS
 
@@ -321,6 +489,12 @@ class Retreat(ActionNode):
         self.robot._publish_table()
         super().terminate(new_status)
 
+    def update(self):
+        status = super().update()
+        if status == py_trees.common.Status.FAILURE:
+            self.robot.stats.planning_fail('Retreat')        
+        return status
+
     def _send_goal(self):
         retreat = copy.deepcopy(self.bb.grasp_proposals[0])
         retreat.position.z += 0.20
@@ -348,6 +522,12 @@ class MoveToDrop(ActionNode):
         self.bb.register_key('/drop_pose',        access=py_trees.common.Access.READ)
         self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
 
+    def update(self):
+        status = super().update()
+        if status == py_trees.common.Status.FAILURE:
+            self.robot.stats.planning_fail('MoveToDrop')     
+        return status
+
     def _send_goal(self):
         drop = self.bb.drop_pose
         self.robot.publish_pose_axes(drop, 'drop_pose', scale=0.10)
@@ -374,7 +554,7 @@ class CheckAllObjectsInContainer(py_trees.behaviour.Behaviour):
     since it runs after the drop and needs current positions.
     """
 
-    _TIMEOUT_SEC = 5.0
+    _TIMEOUT_SEC = 20.0
     _STABLE_TICKS = 5
 
     def __init__(self, robot: RobotInterface):
@@ -382,8 +562,8 @@ class CheckAllObjectsInContainer(py_trees.behaviour.Behaviour):
         self.robot = robot
         self.bb = py_trees.blackboard.Client(name='CheckAllObjectsInContainer')
         self.bb.register_key('/target_object_id', access=py_trees.common.Access.READ)
-        self.bb.register_key('/red_container',        access=py_trees.common.Access.READ)
-        self.bb.register_key('/blue_container',        access=py_trees.common.Access.READ)
+        self.bb.register_key('/red_container',    access=py_trees.common.Access.READ)
+        self.bb.register_key('/blue_container',   access=py_trees.common.Access.READ)
         self.bb.register_key('/detected_objects', access=py_trees.common.Access.READ)
 
     def initialise(self):
@@ -404,34 +584,25 @@ class CheckAllObjectsInContainer(py_trees.behaviour.Behaviour):
     def update(self):
         if self.robot.get_clock().now().nanoseconds > self._deadline:
             self.robot.log('[FAIL] CheckAllObjectsInContainer: timeout')
+            self.robot.stats.cycle_end(success=False,           
+                                       failure_phase='drop timeout')
             return py_trees.common.Status.FAILURE
 
-        number_of_objects = len(self.robot._detected_objects)
-        # if number of objects is less then the initial snapshot, that probably means the object is being held by robot, explaining why there is fewer objects detected
-        if number_of_objects < len(self.bb.detected_objects):
-            return py_trees.common.Status.RUNNING
+        #number_of_objects = len(self.robot._detected_objects)
+        #if number_of_objects < len(self.bb.detected_objects):
+        #    return py_trees.common.Status.RUNNING
 
-        #Commented out this part, since the target_object_id likely doesn't exist/match the object in the container
-        '''if self._in_container_xy(obj.pose):
-            self._stable += 1
-        else:
-            self._stable = 0
-
-        if self._stable < self._STABLE_TICKS:
-            return py_trees.common.Status.RUNNING
-        '''
-        
-        
         all_in = all(
             self._in_correct_container_(o.pose, o_id)
             for o_id, o in self.robot._detected_objects.items()
         )
         if all_in:
             self.robot.log('[OK]   Goal Status: SUCCESS — all objects sorted')
+            self.robot.stats.cycle_end(success=True)            
             return py_trees.common.Status.SUCCESS
-    
 
         self.robot.log(f'[OK]   {self.bb.target_object_id} in container, others remain')
+        self.robot.stats.cycle_end(success=True)               
         return py_trees.common.Status.FAILURE
 
 
@@ -518,7 +689,6 @@ class SelectObject(py_trees.behaviour.Behaviour):
         self.bb.register_key('/detected_objects', access=py_trees.common.Access.READ)
         self.bb.register_key('/red_container', access=py_trees.common.Access.READ)
         self.bb.register_key('/blue_container', access=py_trees.common.Access.READ)
-        # TODO: register the blackboard keys you need
 
     def _get_correct_container(self, obj_id): 
         if 'red' in obj_id.lower(): 
@@ -544,6 +714,7 @@ class SelectObject(py_trees.behaviour.Behaviour):
                 self.bb.target_object_id = obj_id
                 self.bb.target_container = correct_container
                 self.robot.log(f'[INFO] SelectObject: selected {obj_id} for sorting')
+                self.robot.stats.cycle_start(obj_id)           
                 return py_trees.common.Status.SUCCESS
         return py_trees.common.Status.FAILURE
 
@@ -571,17 +742,19 @@ class ProposeGrasps(py_trees.behaviour.Behaviour):
         self._retries = 0
 
     def update(self):
-        # TODO: Might have to change to use a for loop for repetition 
-        # rather than returning RUNNING if no valid grasps. Think it 
-        # will cause whole 
         if self._retries >= self._MAX_RETRIES: 
             self.robot.log('[FAIL] ProposeGrasps: Max retries reached')
+            self.robot.stats.grasp_plan_fail()                 
+            self.robot.stats.cycle_end(success=False,          
+                                       failure_phase='ProposeGrasps')
             return py_trees.common.Status.FAILURE
 
         obj_id = self.bb.target_object_id
         obj = self.bb.detected_objects.get(obj_id)
         if obj is None: 
             self.robot.log(f'[FAIL] ProposeGrasps: {obj_id} not found in BB')
+            self.robot.stats.cycle_end(success=False,          
+                                       failure_phase='ProposeGrasps (obj missing)')
             return py_trees.common.Status.FAILURE
 
         center = (obj.pose.position.x, obj.pose.position.y, obj.pose.position.z)
@@ -620,6 +793,8 @@ class ProposeGrasps(py_trees.behaviour.Behaviour):
         self._retries += 1
         self.robot.log(f'[WARN] ProposeGrasps: No valid grasps found. Retrying ({self._retries}/{self._MAX_RETRIES})...')
         return py_trees.common.Status.RUNNING
+
+
 class ProposeDropPose(py_trees.behaviour.Behaviour):
     """
     Compute a drop pose above the container and write it to /drop_pose.
@@ -634,14 +809,13 @@ class ProposeDropPose(py_trees.behaviour.Behaviour):
         self.bb = py_trees.blackboard.Client(name='ProposeDropPose')
         self.bb.register_key('/target_container', access=py_trees.common.Access.READ)
         self.bb.register_key('/drop_pose', access=py_trees.common.Access.WRITE)
-        # TODO: register the blackboard keys you need
 
     def update(self):
         cx, cy = self.bb.target_container['center_xy']
         
         # Half width - 3cm so object isn't dropped on the rim
-        hx = (self.bb.target_container['width'] / 2.0) - 0.03
-        hy = (self.bb.target_container['depth'] / 2.0) - 0.03
+        hx = (self.bb.target_container['width'] / 2.0) - 0.05
+        hy = (self.bb.target_container['depth'] / 2.0) - 0.05
 
         drop_x = cx + np.random.uniform(-hx, hx)
         drop_y = cy + np.random.uniform(-hy, hy)
@@ -666,6 +840,7 @@ class ProposeDropPose(py_trees.behaviour.Behaviour):
 def main():
     rclpy.init()
     robot = RobotInterface()
+    robot.stats = StatsTracker()               # attach tracker to the robot handle
 
     init_blackboard()
     root = build_tree(robot)
@@ -695,6 +870,7 @@ def main():
     finally:
         tree.shutdown()
         robot.destroy_node()
+        robot.stats.print_summary()            # ← always prints, even on Ctrl-C
 
 
 if __name__ == '__main__':
